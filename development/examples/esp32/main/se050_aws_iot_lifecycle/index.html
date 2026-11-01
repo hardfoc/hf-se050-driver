@@ -1,0 +1,718 @@
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+
+  <link rel="stylesheet" href="/hf-se050-driver/development/assets/css/just-the-docs-default.css">
+
+  <link rel="stylesheet" href="/hf-se050-driver/development/assets/css/just-the-docs-head-nav.css" id="jtd-head-nav-stylesheet">
+
+  <style id="jtd-nav-activation">
+  
+
+    
+    .site-nav > ul.nav-list:first-child > li:not(:nth-child(4)) > a,
+    .site-nav > ul.nav-list:first-child > li > ul > li a {
+      background-image: none;
+    }
+
+    .site-nav > ul.nav-list:not(:first-child) a,
+    .site-nav li.external a {
+      background-image: none;
+    }
+
+    .site-nav > ul.nav-list:first-child > li:nth-child(4) > a {
+      font-weight: 600;
+      text-decoration: none;
+    }.site-nav > ul.nav-list:first-child > li:nth-child(4) > button svg {
+      transform: rotate(-90deg);
+    }.site-nav > ul.nav-list:first-child > li.nav-list-item:nth-child(4) > ul.nav-list {
+      display: block;
+    }
+  </style>
+
+  
+
+  
+    <script src="/hf-se050-driver/development/assets/js/vendor/lunr.min.js"></script>
+  
+
+  <script src="/hf-se050-driver/development/assets/js/just-the-docs.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
+
+
+  <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>SE050 → AWS IoT — Full Device Lifecycle Example | HardFOC SE050 Driver - development</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="SE050 → AWS IoT — Full Device Lifecycle Example" />
+<meta name="author" content="N3b3x" />
+<meta property="og:locale" content="en" />
+<meta name="description" content="NXP SE050 / SE050A secure element driver (scaffold). ESP32-S3 examples use I2C; implementation TBD." />
+<meta property="og:description" content="NXP SE050 / SE050A secure element driver (scaffold). ESP32-S3 examples use I2C; implementation TBD." />
+<link rel="canonical" href="https://n3b3x.github.io/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/" />
+<meta property="og:url" content="https://n3b3x.github.io/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/" />
+<meta property="og:site_name" content="HardFOC SE050 Driver - development" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="SE050 → AWS IoT — Full Device Lifecycle Example" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"N3b3x","url":"https://github.com/n3b3x"},"description":"NXP SE050 / SE050A secure element driver (scaffold). ESP32-S3 examples use I2C; implementation TBD.","headline":"SE050 → AWS IoT — Full Device Lifecycle Example","url":"https://n3b3x.github.io/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+  <!-- =============================================================================
+     Custom Head Content for HardFOC Driver Documentation
+     =============================================================================
+     This file is included in the <head> section of every page.
+     It loads custom CSS and JavaScript for enhanced functionality.
+     ============================================================================= -->
+
+<!-- Custom CSS for enhanced styling and fixes -->
+<link rel="stylesheet" href="/hf-se050-driver/development/assets/css/custom.css">
+
+<!-- Custom JavaScript for interactive features -->
+<script src="/hf-se050-driver/development/assets/js/custom.js" defer></script>
+
+
+
+</head>
+
+<body>
+  <a class="skip-to-main" href="#main-content">Skip to main content</a>
+  <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+  <symbol id="svg-link" viewBox="0 0 24 24">
+  <title>Link</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-link">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+  </svg>
+</symbol>
+
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+  <title>Menu</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu">
+    <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+  </svg>
+</symbol>
+
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+  <title>Expand</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+</symbol>
+
+  <!-- Feather. MIT License: https://github.com/feathericons/feather/blob/master/LICENSE -->
+<symbol id="svg-external-link" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-external-link">
+  <title id="svg-external-link-title">(external link)</title>
+  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>
+</symbol>
+
+  
+    <symbol id="svg-doc" viewBox="0 0 24 24">
+  <title>Document</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file">
+    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline>
+  </svg>
+</symbol>
+
+    <symbol id="svg-search" viewBox="0 0 24 24">
+  <title>Search</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search">
+    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+</symbol>
+
+  
+  
+    <!-- Bootstrap Icons. MIT License: https://github.com/twbs/icons/blob/main/LICENSE.md -->
+<symbol id="svg-copy" viewBox="0 0 16 16">
+  <title>Copy</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
+    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+  </svg>
+</symbol>
+<symbol id="svg-copied" viewBox="0 0 16 16">
+  <title>Copied</title>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard-check-fill" viewBox="0 0 16 16">
+    <path d="M6.5 0A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3Zm3 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3Z"/>
+    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1A2.5 2.5 0 0 1 9.5 5h-3A2.5 2.5 0 0 1 4 2.5v-1Zm6.854 7.354-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708Z"/>
+  </svg>
+</symbol>
+
+  
+</svg>
+
+  
+    <header class="side-bar">
+  <div class="site-header">
+    <a href="/hf-se050-driver/development/" class="site-title lh-tight">
+  HardFOC SE050 Driver - development
+
+</a>
+    <button id="menu-button" class="site-button btn-reset" aria-label="Menu" aria-expanded="false">
+      <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use xlink:href="#svg-menu"></use></svg>
+    </button>
+  </div>
+
+  <nav aria-label="Main" id="site-nav" class="site-nav">
+  
+  
+    <ul class="nav-list"><li class="nav-list-item"><a href="/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/tools/" class="nav-list-link">Companion tooling for the SE050 AWS-IoT lifecycle example</a></li><li class="nav-list-item"><a href="/hf-se050-driver/development/examples/esp32/" class="nav-list-link">ESP32 examples — HF-SE050</a></li><li class="nav-list-item"><a href="/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/SECURITY.html" class="nav-list-link">Medical-Device Cybersecurity — Full Chain, Explained</a></li><li class="nav-list-item"><a href="/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/" class="nav-list-link">SE050 → AWS IoT — Full Device Lifecycle Example</a></li><li class="nav-list-item"><a href="/hf-se050-driver/development/" class="nav-list-link">hf-se050-driver</a></li></ul>
+  
+</nav>
+
+
+<div class="d-md-block d-none site-footer">
+  
+  
+    This site uses <a href="https://github.com/just-the-docs/just-the-docs">Just the Docs</a>, a documentation theme for Jekyll.
+  
+  </div>
+</header>
+
+  
+  <div class="main" id="top">
+    <div id="main-header" class="main-header">
+  
+    
+
+<div class="search" role="search">
+  <div class="search-input-wrap">
+    <input type="text" id="search-input" class="search-input" tabindex="0" placeholder="Search HardFOC SE050 Driver - development" autocomplete="off">
+    <label for="search-input" class="search-label">
+      <span class="sr-only">Search HardFOC SE050 Driver - development</span>
+      <svg viewBox="0 0 24 24" class="search-icon" aria-hidden="true"><use xlink:href="#svg-search"></use></svg>
+    </label>
+  </div>
+  <div id="search-results" class="search-results"></div>
+</div>
+
+  
+  
+  
+    <nav aria-label="Auxiliary" class="aux-nav">
+  <ul class="aux-nav-list">
+    
+      <li class="aux-nav-list-item">
+        <a href="/hf-se050-driver/development/api/index.html" class="site-button"
+          
+        >
+          📖 API Reference
+        </a>
+      </li>
+    
+      <li class="aux-nav-list-item">
+        <a href="https://github.com/n3b3x/hf-se050-driver" class="site-button"
+          
+        >
+          📚 GitHub Repository
+        </a>
+      </li>
+    
+      <li class="aux-nav-list-item">
+        <a href="https://github.com/n3b3x/hf-se050-driver/issues" class="site-button"
+          
+        >
+          🐛 Report Issues
+        </a>
+      </li>
+    
+      <li class="aux-nav-list-item">
+        <a href="https://github.com/n3b3x/hf-se050-driver/stargazers" class="site-button"
+          
+        >
+          ⭐ Star on GitHub
+        </a>
+      </li>
+    
+  </ul>
+</nav>
+
+  
+</div>
+
+    <div class="main-content-wrap">
+      
+      <div id="main-content" class="main-content">
+        <main>
+          
+            <h1 id="se050--aws-iot--full-device-lifecycle-example">
+  
+  
+    <a href="#se050--aws-iot--full-device-lifecycle-example" class="anchor-heading" aria-labelledby="se050--aws-iot--full-device-lifecycle-example"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> SE050 → AWS IoT — Full Device Lifecycle Example
+  
+  
+</h1>
+    
+
+<p>This is the <strong>headline end-to-end example</strong> for the HF-SE050 driver.
+It walks a single ESP32-S3 + NXP SE050 board through every phase of a
+production medical / industrial IoT device’s life:</p>
+
+<ol>
+  <li><strong>Factory provisioning</strong> — on-chip key-pair, CSR, cert install</li>
+  <li><strong>First-field-boot</strong> — WiFi associate, IP, ready for TLS</li>
+  <li><strong>TLS identity</strong> — mbedTLS delegates ECDSA sign to the SE050</li>
+  <li><strong>Steady-state telemetry</strong> — ADC oversample → JSON → SE050 sign → MQTT</li>
+  <li><strong>OTA verify</strong> — ECDSA-verify firmware manifest against on-chip trust anchor</li>
+  <li><strong>Cloud control channel</strong> — signed commands for ping / re-provision / OTA / config</li>
+</ol>
+
+<blockquote>
+  <p><strong>Security posture, threat model, factory procedure, secure-boot
+chain (ESP32 + STM32H7 + nRF + i.MX), pen-test plan, and
+FDA-submission checklist live in <a href="/hf-se050-driver/development/examples/esp32/main/se050_aws_iot_lifecycle/SECURITY.html">SECURITY.md</a>.
+Read that first if you’re building a medical-grade product.</strong></p>
+</blockquote>
+
+<p>Everything lives inside this directory and compiles as a single ESP-IDF
+application so you can flash → monitor → understand in one pass.</p><hr />
+<h2 id="1-file-layout">
+  
+  
+    <a href="#1-file-layout" class="anchor-heading" aria-labelledby="1-file-layout"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 1. File layout
+  
+  
+</h2>
+    
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><div class="table-wrapper"><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre>se050_aws_iot_lifecycle/
+├── se050_aws_iot_lifecycle.cpp   ← main entry (the file in app_config.yml)
+├── lifecycle_config.hpp          ← slot IDs, AWS endpoint, WiFi, feature flags
+├── stage_provisioning.hpp        ← STAGE 1 + re-provisioning (signed token)
+├── stage_bootstrap.hpp           ← STAGE 2
+├── stage_tls_identity.hpp        ← STAGE 3
+├── stage_telemetry.hpp           ← STAGE 4
+├── stage_ota_verify.hpp          ← STAGE 5
+├── stage_control.hpp             ← STAGE 6 (signed cloud commands)
+├── README.md                     ← this file
+├── SECURITY.md                   ← FDA-grade security architecture doc
+└── tools/                        ← host-side companion scripts
+    ├── README.md                 ←   map of the toolkit
+    ├── sign_reprovision_token.py ←   offline HSM signer for reprov tokens
+    ├── factory_provision.py      ←   end-of-line test-station driver
+    ├── verify_telemetry.py       ←   CLI signature verifier
+    ├── lambda_verify_telemetry.py ←  AWS Lambda cloud verifier
+    ├── generate_sbom.py          ←   CycloneDX SBOM generator
+    └── tests/                    ←   host unit tests (pytest)
+</pre></td></tr></tbody></table></div></code></pre></div></div>
+
+<p>The <em>entry</em> <code class="language-plaintext highlighter-rouge">.cpp</code> simply calls <code class="language-plaintext highlighter-rouge">RunStage()</code> on each stage in order. All
+substance lives in the headers so you can read one stage at a time.</p><hr />
+<h2 id="2-architectural-decision--how-provisioning-is-actually-done">
+  
+  
+    <a href="#2-architectural-decision--how-provisioning-is-actually-done" class="anchor-heading" aria-labelledby="2-architectural-decision--how-provisioning-is-actually-done"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 2. Architectural decision — how provisioning is actually done
+  
+  
+</h2>
+    
+
+<p>Before you can flash your first production board you must decide <strong>where
+the device identity is created</strong>. The industry offers three archetypes:</p>
+
+<div class="table-wrapper"><table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Who owns the ID?</th>
+      <th>Hardware needed</th>
+      <th>Field re-provision?</th>
+      <th>Recommended when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A. MCU-as-middleman</strong> (this example)</td>
+      <td>You</td>
+      <td>Just the MCU + SE050 on the board</td>
+      <td>Yes</td>
+      <td>Most teams, most products</td>
+    </tr>
+    <tr>
+      <td><strong>B. Bed-of-nails direct on SE050</strong></td>
+      <td>You</td>
+      <td>Dedicated I2C test fixture</td>
+      <td>No</td>
+      <td>CM pre-provisions bare SE050 chips before assembly</td>
+    </tr>
+    <tr>
+      <td><strong>C. NXP pre-provisioned profile</strong> (<code class="language-plaintext highlighter-rouge">IoT-A</code>)</td>
+      <td>NXP / cloud</td>
+      <td>None</td>
+      <td>N/A</td>
+      <td>Consumer devices with AWS / Azure out-of-box</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<p>We recommend <strong>Option A</strong> and implement it here because:</p>
+
+<ul>
+  <li>It <strong>reuses the same I2C / T=1 code path</strong> the field firmware uses —
+the factory tests what ships.</li>
+  <li>It supports SCP03 secure-channel (session keys live in the MCU where
+they belong).</li>
+  <li><strong>Field re-provisioning</strong> (service depots, hospital biomed replacement
+cycles) is possible without the original bed-of-nails fixture.</li>
+  <li>It requires no extra tester hardware beyond your end-of-line PCBA
+programmer.</li>
+</ul>
+
+<p>See the comment block at the top of <code class="language-plaintext highlighter-rouge">stage_provisioning.hpp</code> for the
+ASCII-art flow of how the factory PC drives the MCU over USB to command
+the SE050.</p><hr />
+<h2 id="3-aws-iot-core-setup-once-per-account">
+  
+  
+    <a href="#3-aws-iot-core-setup-once-per-account" class="anchor-heading" aria-labelledby="3-aws-iot-core-setup-once-per-account"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 3. AWS IoT Core setup (once per account)
+  
+  
+</h2>
+    
+
+<p>You only need to do this <strong>once for your whole fleet</strong>; every device then
+onboards automatically.</p>
+<h3 id="31-find-your-endpoint">
+  
+  
+    <a href="#31-find-your-endpoint" class="anchor-heading" aria-labelledby="31-find-your-endpoint"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 3.1 Find your endpoint
+  
+  
+</h3>
+    
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><div class="table-wrapper"><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>aws iot describe-endpoint <span class="nt">--endpoint-type</span> iot:Data-ATS
+</pre></td></tr></tbody></table></div></code></pre></div></div>
+
+<p>Copy the returned hostname into <code class="language-plaintext highlighter-rouge">lifecycle_config.hpp → aws::kEndpointHost</code>.</p>
+<h3 id="32-upload-your-ca-or-use-fleet-provisioning-by-claim">
+  
+  
+    <a href="#32-upload-your-ca-or-use-fleet-provisioning-by-claim" class="anchor-heading" aria-labelledby="32-upload-your-ca-or-use-fleet-provisioning-by-claim"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 3.2 Upload your CA (or use Fleet Provisioning by Claim)
+  
+  
+</h3>
+    
+
+<ul>
+  <li>
+    <p><strong>Option 1 — Just-in-Time Registration (JITR):</strong>
+Upload your internal CA certificate (<code class="language-plaintext highlighter-rouge">aws iot register-ca-certificate</code>)
+so AWS auto-registers each device cert on first connect.</p>
+  </li>
+  <li>
+    <p><strong>Option 2 — Fleet Provisioning by Claim (recommended for &gt;1k units):</strong>
+Create a template with <code class="language-plaintext highlighter-rouge">aws iot create-provisioning-template</code> whose
+name matches <code class="language-plaintext highlighter-rouge">lifecycle_config.hpp → aws::kProvisioningTemplateName</code>
+(default: <code class="language-plaintext highlighter-rouge">HfSE050MedicalFleet</code>). Embed a <em>claim</em> certificate in the
+factory firmware and let AWS mint each device’s final cert on first
+boot.</p>
+  </li>
+</ul>
+<h3 id="33-topic-policy">
+  
+  
+    <a href="#33-topic-policy" class="anchor-heading" aria-labelledby="33-topic-policy"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 3.3 Topic policy
+  
+  
+</h3>
+    
+
+<p>Attach an IoT policy that allows publish on
+<code class="language-plaintext highlighter-rouge">hf/medical/telemetry/${iot:Connection.Thing.ThingName}/#</code> and subscribe
+on <code class="language-plaintext highlighter-rouge">hf/medical/control/${iot:Connection.Thing.ThingName}/#</code>.</p><hr />
+<h2 id="4-building--flashing">
+  
+  
+    <a href="#4-building--flashing" class="anchor-heading" aria-labelledby="4-building--flashing"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 4. Building &amp; flashing
+  
+  
+</h2>
+    
+
+<p>From the <code class="language-plaintext highlighter-rouge">examples/esp32/</code> directory:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><div class="table-wrapper"><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>./scripts/build_app.sh se050_aws_iot_lifecycle Debug release/v5.5
+./scripts/flash_app.sh se050_aws_iot_lifecycle Debug release/v5.5 /dev/ttyUSB0
+idf.py <span class="nt">-B</span> build-app-se050_aws_iot_lifecycle-type-Debug-target-esp32s3-idf-release_v5.5 monitor
+</pre></td></tr></tbody></table></div></code></pre></div></div>
+
+<p>The target is <strong>ESP32-S3</strong> (configurable via <code class="language-plaintext highlighter-rouge">app_config.yml → metadata.target</code>).</p>
+<h3 id="41-compile-time-feature-gates">
+  
+  
+    <a href="#41-compile-time-feature-gates" class="anchor-heading" aria-labelledby="41-compile-time-feature-gates"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 4.1 Compile-time feature gates
+  
+  
+</h3>
+    
+
+<p>Both defined in <code class="language-plaintext highlighter-rouge">lifecycle_config.hpp</code>:</p>
+
+<div class="table-wrapper"><table>
+  <thead>
+    <tr>
+      <th>Macro</th>
+      <th>Default</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">HF_SE050_LIFECYCLE_ENABLE_NETWORK</code></td>
+      <td><code class="language-plaintext highlighter-rouge">1</code></td>
+      <td>Bring up WiFi (stage 2) + ADC. Set to <code class="language-plaintext highlighter-rouge">0</code> for bench SE050-only runs.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">HF_SE050_LIFECYCLE_SIGN_EVERY_MESSAGE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">1</code></td>
+      <td>Sign each telemetry payload with SE050 in addition to TLS.</td>
+    </tr>
+  </tbody>
+</table></div><hr />
+<h2 id="5-replacing-stubs-for-production">
+  
+  
+    <a href="#5-replacing-stubs-for-production" class="anchor-heading" aria-labelledby="5-replacing-stubs-for-production"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 5. Replacing stubs for production
+  
+  
+</h2>
+    
+
+<p>Search the tree for <code class="language-plaintext highlighter-rouge">TODO(factory)</code> — these are the <strong>only</strong> places that
+hold placeholder bytes:</p>
+
+<ol>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">stage_provisioning.hpp — SignCsrDigest()</code>
+Replace the synthetic digest with <code class="language-plaintext highlighter-rouge">sha256(DER(CertificationRequestInfo))</code>.</p>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">stage_provisioning.hpp — RunStage()</code> (three places)
+    <ul>
+      <li>Real X.509 device cert (DER) from your CA.</li>
+      <li>Amazon Root CA 1 (PEM → DER), download: https://www.amazontrust.com/repository/AmazonRootCA1.pem</li>
+      <li>Vendor OTA ECDSA P-256 public key (65-byte uncompressed point).</li>
+    </ul>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">stage_telemetry.hpp — PublishStub()</code>
+Replace with <code class="language-plaintext highlighter-rouge">esp_mqtt_client_publish()</code> once you add the <code class="language-plaintext highlighter-rouge">mqtt</code>
+component to <code class="language-plaintext highlighter-rouge">MAIN_REQUIRES</code>.</p>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">stage_tls_identity.hpp</code>
+Implement the <code class="language-plaintext highlighter-rouge">mbedtls_pk_info_t</code> vtable so mbedTLS transparently
+uses the SE050 for ECDSA signing during the TLS handshake (recipe
+logged at boot).</li>
+</ol><hr />
+<h2 id="6-hipaa--medical-grade-posture">
+  
+  
+    <a href="#6-hipaa--medical-grade-posture" class="anchor-heading" aria-labelledby="6-hipaa--medical-grade-posture"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 6. HIPAA / medical-grade posture
+  
+  
+</h2>
+    
+
+<p>This example is written to meet the <strong>crypto portion</strong> of the following
+standards when properly configured:</p>
+
+<div class="table-wrapper"><table>
+  <thead>
+    <tr>
+      <th>Standard</th>
+      <th>Relevant control</th>
+      <th>How the example addresses it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HIPAA Security Rule §164.312(a)(2)(iv)</td>
+      <td>Encryption of ePHI at rest &amp; in transit</td>
+      <td>TLS 1.2 + SE050 per-message sign</td>
+    </tr>
+    <tr>
+      <td>IEC 81001-5-1</td>
+      <td>Secure software lifecycle</td>
+      <td>Signed OTA manifests, versioned slot map</td>
+    </tr>
+    <tr>
+      <td>ISO 13485 §4.1.6</td>
+      <td>Software validation</td>
+      <td>Deterministic stage outputs, idempotent provisioning</td>
+    </tr>
+    <tr>
+      <td>ISO/IEC 27001 A.10</td>
+      <td>Cryptographic controls</td>
+      <td>Non-exportable keys, vendor-signed firmware</td>
+    </tr>
+    <tr>
+      <td>UL 2900-1</td>
+      <td>Product security testing</td>
+      <td>No secrets in flash; on-chip root-of-trust</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<p>The <em>non-exportable private key</em> is the cornerstone — ensure your
+security program documents that the SE050’s <code class="language-plaintext highlighter-rouge">Policy::Forbid_Export</code> is
+set on <code class="language-plaintext highlighter-rouge">slot::kDeviceIdentityKey</code> (the driver’s <code class="language-plaintext highlighter-rouge">GenerateEcKeyPair</code>
+default).</p><hr />
+<h2 id="7-troubleshooting">
+  
+  
+    <a href="#7-troubleshooting" class="anchor-heading" aria-labelledby="7-troubleshooting"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 7. Troubleshooting
+  
+  
+</h2>
+    
+
+<div class="table-wrapper"><table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely cause</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Stage 0 bring-up fails</td>
+      <td>I2C wiring / pull-ups / reset pin — run <code class="language-plaintext highlighter-rouge">se050_minimal_example</code> first</td>
+    </tr>
+    <tr>
+      <td>Stage 1 keygen times out</td>
+      <td>SCP03 session key mismatch if secure-channel is active</td>
+    </tr>
+    <tr>
+      <td>Stage 2 never gets IP</td>
+      <td>SSID/PSK typo in <code class="language-plaintext highlighter-rouge">lifecycle_config.hpp → wifi::</code></td>
+    </tr>
+    <tr>
+      <td>Stage 3 sign works but TLS fails</td>
+      <td><code class="language-plaintext highlighter-rouge">mbedtls_pk_info_t</code> not wired; see recipe in stage header</td>
+    </tr>
+    <tr>
+      <td>Stage 4 publishes locally but nothing reaches AWS</td>
+      <td>IoT policy missing publish permission on topic</td>
+    </tr>
+    <tr>
+      <td>Stage 5 always says REJECTED</td>
+      <td>Expected for the demo — real manifests require real signatures</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<p>Enable per-stage log filtering:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><div class="table-wrapper"><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>idf.py monitor <span class="nt">--print_filter</span><span class="o">=</span><span class="s2">"se050_lc*:I"</span>
+</pre></td></tr></tbody></table></div></code></pre></div></div><hr />
+<h2 id="8-further-reading">
+  
+  
+    <a href="#8-further-reading" class="anchor-heading" aria-labelledby="8-further-reading"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> 8. Further reading
+  
+  
+</h2>
+    
+
+<ul>
+  <li><a href="https://www.nxp.com/products/SE050">SE050 datasheet (NXP AN12413)</a></li>
+  <li><a href="https://docs.aws.amazon.com/iot/latest/developerguide/provision-wo-cert.html">AWS IoT Fleet Provisioning developer guide</a></li>
+  <li><a href="https://mbed-tls.readthedocs.io/">mbedTLS PK layer (opaque keys)</a></li>
+  <li>Sibling examples in this directory tree for lower-level drills:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">se050_minimal_example.cpp</code> — transport / ATR only</li>
+      <li><code class="language-plaintext highlighter-rouge">se050_cloud_onboarding_example.cpp</code> — keygen + sign + verify in isolation</li>
+      <li><code class="language-plaintext highlighter-rouge">se050_cloud_registration_packet_example.cpp</code> — idempotent enrollment payload</li>
+    </ul>
+  </li>
+</ul>
+
+          
+
+          
+            
+          
+        </main>
+        
+<hr>
+<footer>
+  
+
+  <!-- =============================================================================
+     Custom Footer Content for HardFOC Driver Documentation
+     =============================================================================
+     This footer is displayed at the bottom of every page.
+     ============================================================================= -->
+
+<footer class="site-footer">
+  <div class="site-footer-credits">
+    <p>Built with ❤️ using <a href="https://just-the-docs.github.io/just-the-docs/">Just the Docs</a></p>
+    <p>
+      <a href="https://github.com/n3b3x/hf-se050-driver/development/blob/main/LICENSE">GPL v3 License</a> • 
+      <a href="https://github.com/n3b3x/hf-se050-driver/development">View on GitHub</a>
+    </p>
+  </div>
+</footer>
+
+
+
+  <div class="d-md-none mt-4 fs-2">
+    
+    
+      This site uses <a href="https://github.com/just-the-docs/just-the-docs">Just the Docs</a>, a documentation theme for Jekyll.
+    
+  </div>
+</footer>
+
+      </div>
+    </div>
+    
+      
+<button id="search-button" class="search-button btn-reset" aria-label="Focus on search">
+  <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use xlink:href="#svg-search"></use></svg>
+</button>
+
+
+<div class="search-overlay"></div>
+
+    
+  </div>
+
+  
+</body>
+</html>
+
