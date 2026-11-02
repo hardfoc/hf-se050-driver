@@ -29,7 +29,9 @@ struct StatusWords {
 /**
  * @brief Build a **CASE 4** command APDU with **extended** length encoding.
  *
- * Layout: `CLA INS P1 P2 00 Lc_hi Lc_lo [data...] Le_hi Le_lo` (Bertin-style extended `Lc`/`Le`).
+ * Layout: `CLA INS P1 P2 00 Lc_hi Lc_lo [data...] Le_hi Le_lo` (ISO/IEC 7816-4 section 5.1, case 4E).
+ * With an extended `Lc` present, `Le` is two bytes; `00 00` asks for up to 65536 bytes. (The three-byte
+ * `00 Le_hi Le_lo` form is only for case 2E, which has no `Lc`.)
  *
  * @param cla INS class byte.
  * @param ins Instruction byte.
@@ -69,7 +71,7 @@ struct StatusWords {
                               out, out_cap, out_len);
     }
     constexpr std::size_t kHeader = 7U; /* CLA.. + 00 LcHi LcLo */
-    constexpr std::size_t kLeExt = 3U;    /* 00 LeHi LeLo */
+    constexpr std::size_t kLeExt = 2U;    /* LeHi LeLo (case 4E: Lc already extended) */
     if (data_len > (kMaxApduCommandBytes - kHeader - kLeExt)) {
         return Error::InvalidArgument;
     }
@@ -90,8 +92,7 @@ struct StatusWords {
         i += data_len;
     }
     out[i++] = 0x00;
-    out[i++] = 0x00;
-    out[i++] = 0x00; /* Request up to 65536 bytes Ne (00 00 00) */
+    out[i++] = 0x00; /* Le = 00 00: Ne = 65536 (ISO/IEC 7816-4 5.1) */
     *out_len = i;
     return Error::Ok;
 }

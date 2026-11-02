@@ -62,6 +62,18 @@ TEST_CASE("BuildCase4Extended uses short encoding up to 255 data bytes and exten
   CHECK_EQ(out[7], 0x5AU);
 }
 
+TEST_CASE("Extended case 4 ends with a two-byte Le (ISO/IEC 7816-4 5.1, case 4E)") {
+  std::uint8_t out[400]{};
+  std::size_t len = 0;
+  const Bytes data(300, 0x5A);
+  REQUIRE(se050::apdu::BuildCase4Extended(0x80, 0x01, 0x06, 0x00, data.data(), data.size(), out,
+                                          sizeof(out), &len) == Error::Ok);
+  CHECK_EQ(len, 4U + 3U + 300U + 2U); // header, 00 Lc_hi Lc_lo, data, Le_hi Le_lo
+  CHECK_EQ(out[len - 2U], 0x00U);
+  CHECK_EQ(out[len - 1U], 0x00U); // 00 00 = Ne 65536
+  CHECK_EQ(out[len - 3U], 0x5AU);  // last data byte, no third Le byte
+}
+
 TEST_CASE("R-APDU parsing splits data and status words") {
   const std::uint8_t rsp[] = {0xDE, 0xAD, 0x6A, 0x82};
   const std::uint8_t* data = nullptr;
