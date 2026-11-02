@@ -61,7 +61,8 @@ sequenceDiagram
   from a typed command becomes `Error::Protocol`; `TransmitApdu()` and the `Select*()` helpers return the raw
   R-APDU so you can read the status words yourself.
 - **Plaintext unless you provision keys.** `TransmitApdu()` wraps only when `Scp03().IsOpen()`; opening the
-  channel needs keys you pass at run time. See [Security model](security.md).
+  channel needs keys you pass at run time. A channel lost to a bad R-MAC is not replaced by plaintext behind your
+  back: calls fail with `Error::Authentication` until you close or reopen it. See [Security model](security.md).
 - **One owner.** The driver keeps T=1 sequence numbers and the SCP03 counter in the object. It is not thread-safe;
   give each SE050 one owner task or one mutex around every call.
 

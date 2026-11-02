@@ -12,7 +12,7 @@ configuration.
 | --- | --- |
 | Every call returns `Transport` | Wrong address, no pull-ups, no supply, ENA low. Fix: address 0x48, external pull-ups to VIN, VIN and VCC 1.62 V to 3.6 V, ENA high (or tied to VCC) |
 | `NotInitialized` | The port's `EnsureInitialized()` returns `false`. Fix: the I2C controller or GPIO set-up in your port |
-| Worked, then the bus is stuck low on SCL | The SE050 is stretching the clock forever: a command was sent before the previous response was read (erratum I2C.1), or an address-only frame reached it (I2C.2). Fix: power-cycle the SE050 (ENA or supply). Remove bus scans; give the chip one owner; power-cycle it after an MCU reset |
+| Worked, then the bus is stuck low on SCL | The SE050 is stretching the clock forever: a command was sent before the previous response was read (erratum I2C.1), or an address-only frame reached it (I2C.2). Fix: power-cycle the SE050 (ENA or supply). Remove bus scans; give the chip one owner; after an MCU reset, power-cycle it or call `T1().RecoverAfterHostReset()` before the first command |
 | Answers only after a power cycle of the whole board | The bus was low while the SE050 booted, so it did not select I2C (erratum I2C.3). Fix: keep SDA and SCL high from power-up; power the MCU's I/O first |
 | `HardwareReset()` has no effect | ENA not wired, or VCC tied to the supply instead of VOUT. Fix: deep power-down needs VIN supply with VCC fed from VOUT ([Hardware](hardware.md#reset-and-power-modes)) |
 
@@ -45,9 +45,8 @@ Typed commands turn any of these into `Error::Protocol`. To see the status word,
 | --- | --- |
 | `OpenSecureChannel()` returns `NotSupported` | A key or the host challenge is missing or the wrong length. Fix: 16-byte ENC and MAC keys, 8-byte challenge |
 | `OpenSecureChannel()` returns `Protocol` | The card cryptogram does not match: the keys are wrong, or the key version. Fix: keys and key version (`0x0B`) of your configuration or your provisioning |
-| `TransmitApdu()` returns `BufferTooSmall` while the channel is open | No wrap buffer bound. Fix: `BindScp03WrapScratch()` with at least 320 bytes |
-| The command after `GetVersion()` fails inside the channel | Erratum JOS.2: no-data commands do not advance the SE050's counter. Fix: call `GetVersion()` before opening the channel |
-| The channel closes by itself | An R-MAC check failed. Fix: treat as tampering or a wiring fault; open a new channel |
+| `TransmitApdu()` returns `BufferTooSmall` while the channel is open | No wrap buffer bound, or one too small for the command. Fix: `BindScp03WrapScratch()` with `scp03::kWrapScratchBytes` (320 bytes), or `kWrapScratchBytesExtended` for commands over 255 data bytes |
+| Every call returns `Authentication` | A response failed its R-MAC (or had none), or a T=1 error broke an exchange inside the channel; the channel is closed and its keys wiped. Fix: treat as tampering or a wiring fault; `Scp03().Close()`, or open a new channel |
 
 ## Build
 

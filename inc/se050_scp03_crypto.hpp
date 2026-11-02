@@ -19,6 +19,56 @@
 
 namespace se050::scp03::crypto {
 
+/**
+ * @brief Overwrite @p len bytes at @p p with zeros in a way the compiler cannot drop.
+ * @details Stores go through a volatile pointer and a compiler barrier follows, so the wipe survives
+ *          dead-store elimination even when the buffer is never read again (the explicit_bzero /
+ *          memset_s pattern). Use it for session keys, round keys, MAC subkeys and key-derived
+ *          intermediates.
+ */
+inline void SecureZero(void* p, std::size_t len) noexcept {
+  if (p == nullptr) {
+    return;
+  }
+  volatile std::uint8_t* v = static_cast<volatile std::uint8_t*>(p);
+  for (std::size_t i = 0; i < len; ++i) {
+    v[i] = 0U;
+  }
+#if defined(__GNUC__) || defined(__clang__)
+  __asm__ __volatile__("" : : "r"(p) : "memory");
+#endif
+}
+
+/** @brief Wipes a buffer with @ref SecureZero when the scope ends, on every return path. */
+class ScopedWipe {
+public:
+  ScopedWipe(void* p, std::size_t len) noexcept : p_(p), len_(len) {}
+  ~ScopedWipe() { SecureZero(p_, len_); }
+  ScopedWipe(const ScopedWipe&) = delete;
+  ScopedWipe& operator=(const ScopedWipe&) = delete;
+
+private:
+  void* p_;
+  std::size_t len_;
+};
+
+/**
+ * @brief Compare two byte strings in time that depends only on @p len, not on where they differ.
+ * @details Use for MACs and cryptograms: `memcmp` returns at the first differing byte, which lets an
+ *          attacker who can time the answer forge a MAC byte by byte.
+ */
+[[nodiscard]] inline bool ConstantTimeEqual(const std::uint8_t* a, const std::uint8_t* b,
+                                            std::size_t len) noexcept {
+  if (a == nullptr || b == nullptr) {
+    return false;
+  }
+  volatile std::uint8_t diff = 0U;
+  for (std::size_t i = 0; i < len; ++i) {
+    diff = static_cast<std::uint8_t>(diff | (a[i] ^ b[i]));
+  }
+  return diff == 0U;
+}
+
 inline constexpr std::size_t kAes128KeyLen = 16U;
 inline constexpr std::size_t kCmacLen = 16U;
 inline constexpr std::size_t kChallengeLen = 8U;
@@ -225,6 +275,8 @@ inline void Aes128EncryptBlock(const std::uint8_t key[kAes128KeyLen],
   ShiftRows(s);
   AddRoundKey(s, rk + 160);
   std::memcpy(out, s, 16);
+  SecureZero(rk, sizeof(rk));
+  SecureZero(s, sizeof(s));
 }
 
 inline void Aes128DecryptBlock(const std::uint8_t key[kAes128KeyLen],
@@ -245,6 +297,8 @@ inline void Aes128DecryptBlock(const std::uint8_t key[kAes128KeyLen],
   InvSubBytes(s);
   AddRoundKey(s, rk);
   std::memcpy(out, s, 16);
+  SecureZero(rk, sizeof(rk));
+  SecureZero(s, sizeof(s));
 }
 
 inline void XorBlock(std::uint8_t* a, const std::uint8_t* b) {
@@ -279,6 +333,7 @@ inline void GenerateSubkeys(const std::uint8_t key[16], std::uint8_t k1[16],
   if (msb1) {
     k2[15] = static_cast<std::uint8_t>(k2[15] ^ 0x87u);
   }
+  SecureZero(L, sizeof(L));
 }
 
 inline void Aes128Cmac(const std::uint8_t key[kAes128KeyLen],
@@ -310,6 +365,10 @@ inline void Aes128Cmac(const std::uint8_t key[kAes128KeyLen],
   }
   XorBlock(block, x);
   Aes128EncryptBlock(key, block, out);
+  SecureZero(k1, sizeof(k1));
+  SecureZero(k2, sizeof(k2));
+  SecureZero(x, sizeof(x));
+  SecureZero(block, sizeof(block));
 }
 
 /** @brief GP Amendment D derivation input (label || 00 || L || i || context). */
@@ -380,6 +439,7 @@ inline bool ComputeCryptogram(const std::uint8_t session_mac_key[kAes128KeyLen],
   std::uint8_t full[kCmacLen];
   Aes128Cmac(session_mac_key, dd, dd_len, full);
   std::memcpy(out8, full, kCryptogramLen);
+  SecureZero(full, sizeof(full));
   return true;
 }
 
@@ -398,6 +458,7 @@ inline bool Aes128CbcEncrypt(const std::uint8_t key[kAes128KeyLen],
     XorBlock(block, chain);
     Aes128EncryptBlock(key, block, dst + off);
     std::memcpy(chain, dst + off, 16);
+    SecureZero(block, sizeof(block));
   }
   return true;
 }
@@ -419,6 +480,7 @@ inline bool Aes128CbcDecrypt(const std::uint8_t key[kAes128KeyLen],
     XorBlock(plain, chain);
     std::memcpy(dst + off, plain, 16);
     std::memcpy(chain, cipher, 16);
+    SecureZero(plain, sizeof(plain));
   }
   return true;
 }
@@ -501,6 +563,10 @@ inline void CmacFinish(Cmac& c, std::uint8_t out[kCmacLen]) {
   }
   XorBlock(block, c.x);
   Aes128EncryptBlock(c.key, block, out);
+  SecureZero(k1, sizeof(k1));
+  SecureZero(k2, sizeof(k2));
+  SecureZero(block, sizeof(block));
+  SecureZero(&c, sizeof(c)); /* the context holds a copy of the key */
 }
 
 /** @brief Command ICV = AES-ECB(SENC, counter). CBC with IV=0 of one block. */

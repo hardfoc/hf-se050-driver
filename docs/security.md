@@ -26,14 +26,16 @@ The driver does:
 
 - **Transport:** T=1 over I2C with CRC. APDUs are plaintext by default.
 - **Platform SCP03:** `INITIALIZE UPDATE` and `EXTERNAL AUTHENTICATE` at security level `0x33` (C-MAC, C-ENC,
-  R-MAC, R-ENC), wrap and unwrap of short APDUs, and `BuildPutKey()` to replace the key set.
+  R-MAC, R-ENC), wrap and unwrap of short and extended APDUs, and `BuildPutKey()` to replace the key set. Every
+  response inside the channel must carry a valid R-MAC; session keys are wiped on `Close()`, on any failure and
+  when the object is destroyed.
 - **Keys:** EC key generation on NIST curves, AES key write, ECDSA sign and verify, AES-ECB, and RFC 3394 unwrap
   through the chip.
 - **No key material in the code:** `OpenSecureChannel()` returns `Error::NotSupported` when you pass no keys.
 
 It does not do (today):
 
-- Extended-length APDUs inside the SCP03 channel, or making SCP03 mandatory on the chip (`SetPlatformSCPRequest`).
+- Making SCP03 mandatory on the chip (`SetPlatformSCPRequest`).
 - Applet sessions authenticated by UserID, AESKey or ECKey, or object policies.
 - RSA, ECDH, attested reads, certificate handling.
 
@@ -47,21 +49,20 @@ I2C lines that may be acceptable; on most products it is not.
 - **Listen on I2C.** Without SCP03 the attacker sees every APDU and response: public keys, signatures, the data
   you write or read, AES keys you write. With SCP03 open, only encrypted, MACed APDUs.
 - **Inject or change I2C traffic.** Without SCP03 the attacker can forge any response, including "signature
-  valid" from `EcdsaVerify()` and the data of `ReadObject()`. With SCP03 open, a tampered response fails the R-MAC
-  and closes the channel, with the exception below.
+  valid" from `EcdsaVerify()` and the data of `ReadObject()`. With SCP03 open, a response that is tampered with,
+  replayed from an earlier command, or sent without its R-MAC (a bare `90 00`) returns `Error::Authentication`
+  and closes the channel.
 - **Move the SE050 to another board.** Without SCP03 its keys work there: they are not bound to your MCU. With
   SCP03 made mandatory on the chip (by a provisioning tool; the driver cannot set it), the attacker needs your
   host keys too.
 - **Attack the SE050 itself to extract keys.** Out of the driver's scope: that is what the chip's certification
   covers.
 
-!!! warning "Responses shorter than 10 bytes are not MAC-checked"
-    `scp03::UnwrapResponse()` passes a response of fewer than 10 bytes through as status words without checking a
-    MAC. GlobalPlatform allows error status words without a MAC, but the driver accepts a bare `90 00` the same
-    way, so an attacker on the bus can fake success for commands that return only a status
-    (`WriteBinary()`, `DeleteSecureObject()`, `GenerateEcKeyPair()`, `WriteAesKey()`). Commands that return data
-    (`ReadObject()`, `EcdsaVerify()`, `GetRandom()`) are not affected: their data must be inside a MACed response.
-    Read back what you wrote when it matters.
+!!! note "Status words without an R-MAC end the channel"
+    Inside the channel the driver accepts no response without a verified R-MAC, including the status-only answers
+    of `WriteBinary()`, `DeleteSecureObject()`, `GenerateEcKeyPair()` and `WriteAesKey()`. An error status the
+    SE050 sends without a MAC (for example `69 82` after it rejected a C-MAC) therefore also returns
+    `Error::Authentication`: the SE050 has dropped the session too, so open a new one.
 
 Verify firmware-update signatures on the MCU, with a public key in its protected storage, rather than trusting
 `EcdsaVerify()` over a plaintext bus.
@@ -131,13 +132,21 @@ sequenceDiagram
 
 - The host challenge must be fresh random bytes for every channel; take them from the MCU's TRNG (or from the
   SE050's `GetRandom()` before the channel opens, accepting that those bytes crossed the bus in plaintext).
-- Bind the wrap buffer once with `BindScp03WrapScratch()` (at least `scp03::kWrapScratchBytes`, 320 bytes).
-- Inside the channel the driver wraps short APDUs only: up to 255 bytes of command data including padding and MAC.
-- Erratum JOS.2: the SE050 does not advance its encryption counter for a command without command data, so the
-  next command fails. `GetVersion()` sends no data; call it before opening the channel.
-- A response that fails its R-MAC closes the channel (`IsOpen()` becomes `false`): treat that as an attack or a
-  wiring fault, not as a retry case.
-- `Close()` marks the channel closed; it does not wipe the session keys held in the device object.
+- Bind the wrap buffer once with `BindScp03WrapScratch()`: at least `scp03::kWrapScratchBytes` (320 bytes) for
+  short commands, `scp03::kWrapScratchBytesExtended` for commands with more than 255 bytes of data, which go out
+  in extended form. A command's Le is kept (as `00`, the protected answer being longer than the plain one).
+- Erratum JOS.2: the SE050 does not advance its encryption counter for a command without command data. The driver
+  applies NXP's workaround (errata sheet 3.13.3): every command carries encrypted data, a command without data
+  one encrypted padding block, so `GetVersion()` works inside the channel.
+- A response without a valid R-MAC (missing, short, tampered or replayed), or a T=1 failure inside the channel,
+  closes the channel and wipes its keys. The failing call returns `Error::Authentication` (or the T=1 error), and
+  so does every later command, without touching the bus, until you call `Scp03().Close()` (back to plaintext) or
+  open a new channel: the driver never falls back to plaintext on its own. `Scp03().Failed()` tells you this
+  happened. Treat it as an attack or a wiring fault, not as a retry case.
+- MACs and cryptograms are compared in constant time.
+- `Close()` and the destructor wipe the session keys, MAC chaining value and counter with
+  `scp03::crypto::SecureZero()`, which the compiler cannot optimise away. Wipe your copies of the static keys
+  after `OpenSecureChannel()` returns.
 
 ## Deployment flows
 

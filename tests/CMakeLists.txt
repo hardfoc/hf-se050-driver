@@ -13,6 +13,7 @@ add_executable(hf_se050_host_tests
   test_main.cpp
   test_t1.cpp
   test_apdu.cpp
+  test_scp03.cpp
 )
 
 target_link_libraries(hf_se050_host_tests PRIVATE ${HF_SE050_TARGET_NAME})
@@ -34,3 +35,13 @@ target_link_libraries(hf_se050_doc_snippets PRIVATE ${HF_SE050_TARGET_NAME})
 target_include_directories(hf_se050_doc_snippets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/docs)
 target_compile_features(hf_se050_doc_snippets PRIVATE cxx_std_17)
 target_compile_options(hf_se050_doc_snippets PRIVATE -Wall -Wextra)
+
+# Install rules: install to a scratch prefix and build a find_package(hf_se050) consumer against it.
+add_test(NAME hf_se050_install
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/install-check
+    -DCXX=${CMAKE_CXX_COMPILER}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/install_check.cmake
+)

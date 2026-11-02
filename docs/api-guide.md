@@ -104,8 +104,10 @@ when an SCP03 channel is open. `apdu::BuildCaseShort()` serialises a command wit
 ```
 
 `OpenSecureChannel()` returns `Error::NotSupported` when a key or the 8-byte host challenge is missing, and
-`Error::Protocol` when the card cryptogram does not match (wrong keys). The [Security model](security.md#protect-the-bus-with-scp03)
-page covers provisioning, the limits of the channel and an erratum that affects commands without data.
+`Error::Protocol` when the card cryptogram does not match (wrong keys). Inside the channel any response without a
+valid R-MAC returns `Error::Authentication` and closes the channel; later commands return the same until
+`Scp03().Close()` or a new `OpenSecureChannel()`. The [Security model](security.md#protect-the-bus-with-scp03)
+page covers provisioning and the limits of the channel.
 
 ## Handle errors
 
@@ -114,12 +116,13 @@ page covers provisioning, the limits of the channel and an erratum that affects 
 | `Ok` | Success |
 | `NotInitialized` | The port's `EnsureInitialized()` returned `false`. Check bus set-up |
 | `Transport`, `Timeout` | An I2C write failed, or a read failed after the retries. Wiring, address, power, ENA; [Troubleshooting](troubleshooting.md) |
-| `Crc` | A block arrived with a wrong CRC. Noise, speed, a port that splits writes; recover |
+| `Crc` | Blocks kept arriving with a wrong CRC after the retransmissions (`SetMaxRetransmissions()`). Noise, speed, a port that splits writes; recover |
 | `Sequence` | The SE050's N(S) is not the expected one. Recover |
-| `Protocol` | Bad framing, too many WTX requests, an R-MAC failure, or a typed command answered SW other than `90 00`. Recover; for a status word, send the command with `TransmitApdu()` to see it |
+| `Protocol` | Bad framing, too many WTX requests or retransmissions, or a typed command answered SW other than `90 00`. Recover; for a status word, send the command with `TransmitApdu()` to see it |
 | `BufferTooSmall` | The answer does not fit your buffer, or the SCP03 scratch is missing. Pass a larger buffer |
 | `InvalidArgument` | A null pointer or a length out of range. Fix the call |
 | `NotSupported` | SCP03 without keys, or wrap without an open channel. Provision keys |
+| `Authentication` | Inside the SCP03 channel, a response without a valid R-MAC; or a command after the channel was lost. The keys are wiped. Treat as tampering; `Scp03().Close()` or open a new channel |
 
 After any error below the applet level (`Transport`, `Timeout`, `Crc`, `Sequence`, `Protocol` from framing), the
 T=1 state of host and chip may differ. Start over:
@@ -130,4 +133,5 @@ T=1 state of host and chip may differ. Start over:
 
 If that fails too, power-cycle the SE050 with `HardwareReset()` (ENA) and bring it up again. A chip that stretches
 the clock forever needs a power cycle: see erratum I2C.1 on the [Hardware](hardware.md#errata-that-affect-the-host)
-page.
+page. `T1().RecoverAfterHostReset()` at start-up prevents the usual cause, a host reset in the middle of an
+exchange.

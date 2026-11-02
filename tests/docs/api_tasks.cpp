@@ -32,7 +32,10 @@ bool sw_ok(const std::uint8_t* rapdu, std::size_t rapdu_len) {
 int bring_up(Se& se) {
   // --8<-- [start:bringup]
   (void)se.HardwareReset(); // ENA low, then high (no-op when ENA is not wired)
-  se.T1().ResetSequenceState();
+  // Erratum I2C.1: read any answer left over from before an MCU reset, then resynchronise.
+  if (se.T1().RecoverAfterHostReset(100) != se050::Error::Ok) {
+    return -3;
+  }
   if (se.T1().ChipWarmReset(100) != se050::Error::Ok) {
     return -1;
   }
@@ -184,6 +187,8 @@ const char* describe(se050::Error e) {
     return "null pointer or length out of range";
   case se050::Error::NotSupported:
     return "feature unavailable, e.g. SCP03 without keys";
+  case se050::Error::Authentication:
+    return "SCP03 answer without a valid R-MAC: channel closed, keys wiped";
   }
   return "unknown";
 }
@@ -213,7 +218,8 @@ int open_scp03(Se& se) {
   keys.host_challenge = challenge;
   keys.host_challenge_len = sizeof(challenge);
 
-  static std::uint8_t wrap_scratch[se050::scp03::kWrapScratchBytes]; // not on a small task stack
+  // kWrapScratchBytes (320) is enough for short commands; this size covers extended ones too.
+  static std::uint8_t wrap_scratch[se050::scp03::kWrapScratchBytesExtended]; // not on a small task stack
   se.BindScp03WrapScratch(wrap_scratch, sizeof(wrap_scratch));
 
   const se050::Error e = se.Scp03().OpenSecureChannel(se.T1(), keys, 500);
@@ -224,6 +230,8 @@ int open_scp03(Se& se) {
     return -2; // NotSupported, or Protocol: wrong keys
   }
   // From here TransmitApdu() and every Device command are wrapped (C-MAC, C-ENC, R-MAC, R-ENC).
+  // A response without a valid R-MAC returns Error::Authentication and closes the channel; Close()
+  // wipes the session keys.
   // --8<-- [end:scp03]
   return 0;
 }

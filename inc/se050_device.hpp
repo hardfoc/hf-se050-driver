@@ -57,6 +57,10 @@ public:
      * @brief Transmit a **C-APDU** (already serialized) and receive the **R-APDU** INF bytes.
      * @details When @ref Scp03 is open, C-MAC/C-ENC wrap and R-MAC/R-ENC unwrap using the
      *          bound scratch. Otherwise plaintext T=1 (honest posture without unique keys).
+     *          A response without a valid R-MAC returns @ref Error::Authentication; so does a T=1
+     *          failure inside the channel (returned as the T=1 error). Either way the channel is
+     *          closed with its keys wiped, and further calls return @ref Error::Authentication until
+     *          `Scp03().Close()` or a new `OpenSecureChannel()`.
      * @param capdu Serialized command APDU.
      * @param capdu_len Length of @p capdu.
      * @param rapdu_buf Buffer for concatenated response body + `SW1SW2`.
@@ -66,8 +70,15 @@ public:
     [[nodiscard]] Error TransmitApdu(const std::uint8_t* capdu, std::size_t capdu_len, std::uint8_t* rapdu_buf,
                                      std::size_t rapdu_cap, std::size_t* rapdu_len,
                                      std::uint32_t timeout_ms) noexcept {
+        if (rapdu_len == nullptr) {
+            return Error::InvalidArgument;
+        }
+        *rapdu_len = 0;
         if (!EnsureInitialized()) {
             return Error::NotInitialized;
+        }
+        if (scp03_.Failed()) {
+            return Error::Authentication; /* never fall back to plaintext after a lost channel */
         }
         if (!scp03_.IsOpen()) {
             return t1_.ExchangeInformation(capdu, capdu_len, rapdu_buf, rapdu_cap, rapdu_len, timeout_ms);
@@ -78,14 +89,14 @@ public:
         std::size_t wrapped_len = 0;
         Error e = scp03_.WrapCommand(capdu, capdu_len, scp03_wrap_, scp03_wrap_cap_, &wrapped_len);
         if (e != Error::Ok) {
-            return e;
+            return e; /* nothing sent; the channel is unchanged */
         }
         e = t1_.ExchangeInformation(scp03_wrap_, wrapped_len, rapdu_buf, rapdu_cap, rapdu_len, timeout_ms);
         if (e != Error::Ok) {
+            /* The MAC chaining value moved on but the answer is lost: host and card are out of step. */
+            scp03_.Abort();
+            *rapdu_len = 0;
             return e;
-        }
-        if (rapdu_len == nullptr) {
-            return Error::InvalidArgument;
         }
         return scp03_.UnwrapResponse(rapdu_buf, *rapdu_len, rapdu_buf, rapdu_cap, rapdu_len);
     }
