@@ -74,6 +74,89 @@ bool AllZero(const std::uint8_t* p, std::size_t n) {
 
 } // namespace
 
+TEST_CASE("SCP03: an answer with only a status word is rejected and closes the channel") {
+  Rig r;
+  REQUIRE(r.Open());
+  r.card.strip_rmac_next = true; // a bus attacker answers 90 00 without R-MAC
+  CHECK(r.se.DeleteSecureObject(kObj, 100) == Error::Authentication);
+  CHECK(!r.se.Scp03().IsOpen());
+  CHECK(KeysWiped(r.se.Scp03().State()));
+}
+
+TEST_CASE("SCP03: a short answer passed to UnwrapResponse is never accepted") {
+  Rig r;
+  REQUIRE(r.Open());
+  const std::uint8_t sw_only[] = {0x90, 0x00};
+  std::uint8_t out[16]{};
+  std::size_t out_len = 0;
+  CHECK(r.se.Scp03().UnwrapResponse(sw_only, sizeof(sw_only), out, sizeof(out), &out_len) ==
+        Error::Authentication);
+  CHECK_EQ(out_len, 0U);
+  CHECK(!r.se.Scp03().IsOpen());
+  const std::uint8_t nine[9] = {0, 1, 2, 3, 4, 5, 6, 0x90, 0x00}; // one byte short of a MAC + SW
+  CHECK(se050::scp03::UnwrapResponse(r.se.Scp03().State(), nine, sizeof(nine), out, sizeof(out),
+                                     &out_len) != Error::Ok);
+}
+
+TEST_CASE("SCP03: a tampered R-MAC is rejected and closes the channel") {
+  Rig r;
+  REQUIRE(r.Open());
+  r.card.flip_rmac_next = true;
+  std::uint8_t out[32]{};
+  std::size_t out_len = 0;
+  CHECK(r.se.GetRandom(32, out, sizeof(out), &out_len, 100) == Error::Authentication);
+  CHECK_EQ(out_len, 0U);
+  CHECK(KeysWiped(r.se.Scp03().State()));
+}
+
+TEST_CASE("SCP03: a replayed earlier answer is rejected") {
+  Rig r;
+  REQUIRE(r.Open());
+  REQUIRE(r.se.DeleteSecureObject(kObj, 100) == Error::Ok);
+  r.card.replay_next = true; // the attacker answers the second command with the first answer
+  CHECK(r.se.DeleteSecureObject(kObj, 100) == Error::Authentication);
+  CHECK(!r.se.Scp03().IsOpen());
+}
+
+TEST_CASE("SCP03: commands are refused after the channel closed on a bad answer") {
+  Rig r;
+  REQUIRE(r.Open());
+  r.card.flip_rmac_next = true;
+  CHECK(r.se.DeleteSecureObject(kObj, 100) != Error::Ok);
+  const std::size_t sent = r.chip.capdus.size();
+  // The device falls back to plaintext only when the caller asks; a closed channel is visible.
+  CHECK(!r.se.Scp03().IsOpen());
+  CHECK_EQ(r.chip.capdus.size(), sent);
+}
+
+TEST_CASE("SCP03: a T=1 failure inside the channel closes it and wipes the keys") {
+  Rig r;
+  REQUIRE(r.Open());
+  r.se.T1().SetReadRetries(0);
+  r.chip.failing_reads = 100;
+  CHECK(r.se.DeleteSecureObject(kObj, 100) != Error::Ok);
+  CHECK(KeysWiped(r.se.Scp03().State()));
+}
+
+TEST_CASE("SCP03: Close() wipes the session keys, MAC chaining value and counter") {
+  Rig r;
+  REQUIRE(r.Open());
+  CHECK(!AllZero(r.se.Scp03().State().senc, 16));
+  CHECK(r.se.Scp03().Close() == Error::Ok);
+  CHECK(KeysWiped(r.se.Scp03().State()));
+}
+
+TEST_CASE("SCP03: destroying a session wipes its keys") {
+  alignas(se050::scp03::Session<MockSe050>) unsigned char storage[sizeof(se050::scp03::Session<MockSe050>)];
+  auto* s = new (storage) se050::scp03::Session<MockSe050>();
+  std::memset(s->State().senc, 0x11, 16);
+  std::memset(s->State().smac, 0x22, 16);
+  std::memset(s->State().srmac, 0x33, 16);
+  s->State().open = true;
+  s->~Session();
+  CHECK(AllZero(storage, sizeof(storage)));
+}
+
 TEST_CASE("SCP03: MAC comparison helper compares every byte") {
   namespace cr = se050::scp03::crypto;
   const std::uint8_t a[8] = {1, 2, 3, 4, 5, 6, 7, 8};

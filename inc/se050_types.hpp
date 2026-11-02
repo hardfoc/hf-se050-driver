@@ -26,6 +26,11 @@ enum class Error : std::uint8_t {
     Sequence,
     /** Feature not compiled / not available on this build (e.g. SCP03 crypto hooks). */
     NotSupported,
+    /**
+     * A response inside an open SCP03 channel had no valid R-MAC (missing, too short, tampered or
+     * replayed). The channel is closed and its keys wiped; treat it as an attack or a wiring fault.
+     */
+    Authentication,
 };
 
 /** Default 7-bit I2C address for SE050 class parts (see NXP / board docs). */

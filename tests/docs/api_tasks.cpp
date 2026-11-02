@@ -184,6 +184,8 @@ const char* describe(se050::Error e) {
     return "null pointer or length out of range";
   case se050::Error::NotSupported:
     return "feature unavailable, e.g. SCP03 without keys";
+  case se050::Error::Authentication:
+    return "SCP03 answer without a valid R-MAC: channel closed, keys wiped";
   }
   return "unknown";
 }

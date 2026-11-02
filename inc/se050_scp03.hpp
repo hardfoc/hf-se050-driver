@@ -136,9 +136,19 @@ struct ChannelState {
 }
 
 /**
- * @brief R-MAC + R-ENC unwrap. Increments the command counter on R-MAC Ok.
- * @details A short error R-APDU (< 10 bytes) passes SW through without MAC.
- *          MAC failure closes the channel.
+ * @brief End a session: wipe the session keys, MAC chaining value and counter, mark it closed.
+ * @details Uses @ref crypto::SecureZero so the wipe is not optimised away.
+ */
+inline void WipeChannel(ChannelState& st) noexcept { crypto::SecureZero(&st, sizeof(st)); }
+
+/**
+ * @brief R-MAC check and R-ENC decryption of one response. Increments the counter on success.
+ * @details GPC Amendment D 6.2.5 / 6.2.7 (security level 0x33): every response in the session carries
+ *          an R-MAC over the MAC chaining value, the encrypted data and SW1 SW2. A response that is
+ *          shorter than R-MAC + SW (for example a bare `90 00` an attacker injects on the bus), whose
+ *          R-MAC does not match, or whose padding is invalid returns @ref Error::Authentication, and the
+ *          channel is closed with its keys wiped. Nothing from such a response is written to @p out.
+ *          The MAC is compared in constant time and checked before anything is decrypted.
  */
 [[nodiscard]] inline Error UnwrapResponse(ChannelState& st, const std::uint8_t* rapdu,
                                           std::size_t rapdu_len, std::uint8_t* out,
@@ -150,70 +160,68 @@ struct ChannelState {
     if (!st.open) {
         return Error::NotSupported;
     }
-    if (rapdu == nullptr || out == nullptr || rapdu_len < 2U) {
+    if (rapdu == nullptr || out == nullptr) {
         return Error::InvalidArgument;
+    }
+    if (rapdu_len < (kMacFieldLen + 2U)) {
+        WipeChannel(st);
+        return Error::Authentication;
     }
 
     const std::uint8_t sw1 = rapdu[rapdu_len - 2U];
     const std::uint8_t sw2 = rapdu[rapdu_len - 1U];
-
-    if (rapdu_len < (kMacFieldLen + 2U)) {
-        if (out_cap < 2U) {
-            return Error::BufferTooSmall;
-        }
-        out[0] = sw1;
-        out[1] = sw2;
-        *out_len = 2U;
-        crypto::IncCommandCounter(st.counter);
-        return Error::Ok;
-    }
+    const std::size_t enc_len = rapdu_len - kMacFieldLen - 2U;
 
     crypto::Cmac cm{};
     crypto::CmacStart(cm, st.srmac);
     crypto::CmacUpdate(cm, st.mcv, 16U);
-    crypto::CmacUpdate(cm, rapdu, rapdu_len - kMacFieldLen - 2U);
+    crypto::CmacUpdate(cm, rapdu, enc_len);
     crypto::CmacUpdate(cm, rapdu + rapdu_len - 2U, 2U);
     std::uint8_t mac_full[16]{};
+    crypto::ScopedWipe wipe_mac(mac_full, sizeof(mac_full));
     crypto::CmacFinish(cm, mac_full);
-    if (!crypto::ConstantTimeEqual(mac_full, rapdu + rapdu_len - kMacFieldLen - 2U, kMacFieldLen)) {
-        st.open = false;
-        return Error::Protocol;
+    if (!crypto::ConstantTimeEqual(mac_full, rapdu + enc_len, kMacFieldLen)) {
+        WipeChannel(st);
+        return Error::Authentication;
     }
 
-    const std::size_t enc_len = rapdu_len - kMacFieldLen - 2U;
     if (enc_len == 0U) {
+        crypto::IncCommandCounter(st.counter);
         if (out_cap < 2U) {
             return Error::BufferTooSmall;
         }
         out[0] = sw1;
         out[1] = sw2;
         *out_len = 2U;
-        crypto::IncCommandCounter(st.counter);
         return Error::Ok;
     }
-    if ((enc_len % 16U) != 0U || enc_len > out_cap) {
-        st.open = false;
-        return Error::Protocol;
+    if ((enc_len % 16U) != 0U) {
+        WipeChannel(st);
+        return Error::Authentication;
+    }
+    if (enc_len > out_cap) {
+        crypto::IncCommandCounter(st.counter); /* answer consumed: stay in step with the card */
+        return Error::BufferTooSmall;
     }
 
     std::uint8_t icv[16]{};
+    crypto::ScopedWipe wipe_icv(icv, sizeof(icv));
     crypto::ResponseIcv(st.senc, st.counter, icv);
-    if (!crypto::Aes128CbcDecrypt(st.senc, icv, rapdu, out, enc_len)) {
-        st.open = false;
-        return Error::Protocol;
-    }
     std::size_t plain_len = 0;
-    if (!crypto::IsoUnpad80(out, enc_len, &plain_len)) {
-        st.open = false;
-        return Error::Protocol;
+    if (!crypto::Aes128CbcDecrypt(st.senc, icv, rapdu, out, enc_len) ||
+        !crypto::IsoUnpad80(out, enc_len, &plain_len)) {
+        crypto::SecureZero(out, enc_len);
+        WipeChannel(st);
+        return Error::Authentication;
     }
+    crypto::IncCommandCounter(st.counter);
     if ((plain_len + 2U) > out_cap) {
+        crypto::SecureZero(out, enc_len);
         return Error::BufferTooSmall;
     }
     out[plain_len] = sw1;
     out[plain_len + 1U] = sw2;
     *out_len = plain_len + 2U;
-    crypto::IncCommandCounter(st.counter);
     return Error::Ok;
 }
 
@@ -313,6 +321,10 @@ template <typename TransportT>
 class Session {
 public:
     Session() noexcept = default;
+    /** @brief Wipes the session keys (see @ref Close). */
+    ~Session() { WipeChannel(st_); }
+    Session(const Session&) = delete;             ///< session keys are never copied
+    Session& operator=(const Session&) = delete;  ///< session keys are never copied
 
     /**
      * @brief `INITIALIZE UPDATE` / `EXTERNAL AUTHENTICATE`.
@@ -325,7 +337,8 @@ public:
         using crypto::kAes128KeyLen;
         using crypto::kChallengeLen;
         using crypto::kCryptogramLen;
-        st_.open = false;
+        WipeChannel(st_);
+        failed_ = false;
         if (!crypto::StaticKeysUsable(keys.host_static_key_enc, keys.host_static_key_enc_len,
                                       keys.host_static_key_cmac, keys.host_static_key_cmac_len) ||
             keys.host_challenge == nullptr || keys.host_challenge_len != kChallengeLen) {
@@ -362,6 +375,9 @@ public:
         std::uint8_t senc[kAes128KeyLen]{};
         std::uint8_t smac[kAes128KeyLen]{};
         std::uint8_t srmac[kAes128KeyLen]{};
+        crypto::ScopedWipe wipe_senc(senc, sizeof(senc));
+        crypto::ScopedWipe wipe_smac(smac, sizeof(smac));
+        crypto::ScopedWipe wipe_srmac(srmac, sizeof(srmac));
         if (!crypto::DeriveSessionKey(keys.host_static_key_enc, crypto::kDeriveSenc,
                                       keys.host_challenge, card_challenge, senc) ||
             !crypto::DeriveSessionKey(keys.host_static_key_cmac, crypto::kDeriveSmac,
@@ -394,9 +410,10 @@ public:
 
         std::uint8_t mcv[16]{};
         std::uint8_t mac_in[16 + 13]{};
+        std::uint8_t mac_full[16]{};
+        crypto::ScopedWipe wipe_mac(mac_full, sizeof(mac_full));
         std::memcpy(mac_in, mcv, 16);
         std::memcpy(mac_in + 16, ext, 13);
-        std::uint8_t mac_full[16]{};
         crypto::Aes128Cmac(smac, mac_in, 16U + 13U, mac_full);
         std::memcpy(ext + 13, mac_full, kCryptogramLen);
         const std::size_t ext_len = 5U + 2U * kCryptogramLen;
@@ -423,12 +440,31 @@ public:
         return Error::Ok;
     }
 
+    /**
+     * @brief Close the channel: wipe session keys, MAC chaining value and counter.
+     * @details Also clears @ref Failed, so the device sends plaintext again until the next
+     *          @ref OpenSecureChannel.
+     */
     [[nodiscard]] Error Close() noexcept {
-        st_.open = false;
+        WipeChannel(st_);
+        failed_ = false;
         return Error::Ok;
     }
 
     [[nodiscard]] bool IsOpen() const noexcept { return st_.open; }
+
+    /**
+     * @brief `true` after the channel was lost (a response failed its R-MAC, or the exchange broke
+     *        inside the channel). The device refuses commands with @ref Error::Authentication until
+     *        @ref Close or a new @ref OpenSecureChannel, so it never falls back to plaintext silently.
+     */
+    [[nodiscard]] bool Failed() const noexcept { return failed_; }
+
+    /** @brief Mark the channel lost and wipe its keys (used by the device on a broken exchange). */
+    void Abort() noexcept {
+        WipeChannel(st_);
+        failed_ = true;
+    }
 
     [[nodiscard]] Error WrapCommand(const std::uint8_t* capdu, std::size_t capdu_len,
                                     std::uint8_t* out, std::size_t out_cap,
@@ -439,7 +475,11 @@ public:
     [[nodiscard]] Error UnwrapResponse(const std::uint8_t* rapdu, std::size_t rapdu_len,
                                        std::uint8_t* out, std::size_t out_cap,
                                        std::size_t* out_len) noexcept {
-        return se050::scp03::UnwrapResponse(st_, rapdu, rapdu_len, out, out_cap, out_len);
+        const Error e = se050::scp03::UnwrapResponse(st_, rapdu, rapdu_len, out, out_cap, out_len);
+        if (e == Error::Authentication) {
+            failed_ = true;
+        }
+        return e;
     }
 
     [[nodiscard]] ChannelState& State() noexcept { return st_; }
@@ -447,6 +487,7 @@ public:
 
 private:
     ChannelState st_{};
+    bool failed_{false};
 };
 
 }  // namespace se050::scp03
