@@ -19,12 +19,16 @@ ctest --test-dir build-host --output-on-failure
 
 | File | Covers |
 | --- | --- |
-| [`tests/test_t1.cpp`](../tests/test_t1.cpp) | CRC-16 check value and byte order, S-block framing, N(S) alternation, chaining both ways, WTX limits, CRC and retry errors |
+| [`tests/test_t1.cpp`](../tests/test_t1.cpp) | CRC-16 check value and byte order, S-block framing, N(S) alternation, chaining both ways, WTX limits, retransmission after EDC errors and NACKs, IFSC from the ATR, the erratum I2C.1 start-up read, retry errors |
 | [`tests/test_apdu.cpp`](../tests/test_apdu.cpp) | `SELECT`, short and extended APDUs, R-APDU and TLV parsing, `GetRandom` / `GetVersion` / `EcdsaVerify` end to end, status-word errors, the SCP03 key gate, the RFC 3394 test vector |
-| [`tests/mock_se050.hpp`](../tests/mock_se050.hpp) | The T=1 over I2C model |
+| [`tests/test_scp03.cpp`](../tests/test_scp03.cpp) | SCP03 against the card model: round trips, rejected answers (tampered R-MAC, status word only, replay), wiping on `Close()` and destruction, erratum JOS.2, extended APDUs and Le |
+| [`tests/mock_se050.hpp`](../tests/mock_se050.hpp) | The T=1 over I2C model, with EDC, NACK and I2C.1 fault injection |
+| [`tests/mock_scp03_card.hpp`](../tests/mock_scp03_card.hpp) | The card side of SCP03 in front of an applet model |
+| [`tests/install_check.cmake`](../tests/install_check.cmake) | CTest `hf_se050_install`: install, then build a `find_package()` consumer |
 | [`tests/test_harness.hpp`](../tests/test_harness.hpp), [`tests/test_main.cpp`](../tests/test_main.cpp) | A dependency-free test registry and runner |
 
-The tests use no real keys: the only key material is the public RFC 3394 test vector.
+The tests use no real keys: the only key material is the public RFC 3394 test vector, which the SCP03 tests also
+use as static keys and challenges.
 
 ## Documentation snippets
 

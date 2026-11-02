@@ -36,8 +36,20 @@ generated version header, and requires C++17 (`cxx_std_17`).
 | `HF_SE050_ENABLE_WARNINGS` | `OFF` | `-Wall -Wextra -Wpedantic` on targets that link `hf::se050` |
 | `HF_SE050_BUILD_TESTS` | `OFF` | Builds the host unit tests in `tests/` ([Testing and CI](testing.md)) |
 
-The CMake files write a package configuration (`hf_se050Config.cmake`) into the build tree, but the project has no
-install rules yet, so use `add_subdirectory()` rather than `find_package()`.
+To use an installed copy instead, install the driver and find it as a package:
+
+```bash
+cmake -S hf-se050-driver -B build && cmake --install build --prefix /opt/hf
+```
+
+```cmake
+find_package(hf_se050 0.3 REQUIRED CONFIG)   # CMAKE_PREFIX_PATH=/opt/hf
+target_link_libraries(app PRIVATE hf::se050)
+```
+
+The headers and `se050_version.h` install under `include/hf_se050`, the package files under
+`lib/cmake/hf_se050`. The CMake version, `HF_SE050_VERSION` and the ESP-IDF component manifest carry the same
+version; configuring fails if they differ.
 
 ## ESP-IDF
 

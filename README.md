@@ -58,10 +58,12 @@ int read_32_random_bytes(MyI2c& i2c, std::uint8_t (&random)[32]) {
 
 ## What it does
 
-- Brings up the T=1 over I2C link: CRC-16, chaining both ways, WTX and resynchronisation requests, ATR parsing.
+- Brings up the T=1 over I2C link: CRC-16, chaining both ways, retransmission after errors, the SE050's block
+  size (IFSC) from its ATR, WTX and resynchronisation requests, the erratum I2C.1 start-up read.
 - Selects the IoT applet and sends its commands: `GetVersion`, `GetRandom`, `GetFreeMemory`, binary objects,
   EC key generation, `EcdsaSign` / `EcdsaVerify`, AES keys, AES-ECB and RFC 3394 unwrap through the chip.
 - Opens a GlobalPlatform SCP03 channel (C-MAC, C-ENC, R-MAC, R-ENC) with keys you provision; ships no keys.
+  Every response must carry a valid R-MAC, and session keys are wiped on close.
 - Builds any APDU you need with the APDU, TLV and command helpers.
 - No heap, no exceptions, no RTOS, no virtual calls (the port is a CRTP class).
 
@@ -72,7 +74,7 @@ git submodule add https://github.com/hardfoc/hf-se050-driver.git external/hf-se0
 ```
 
 ```cmake
-add_subdirectory(external/hf-se050-driver)
+add_subdirectory(external/hf-se050-driver)   # or, after cmake --install: find_package(hf_se050 REQUIRED)
 target_link_libraries(my_app PRIVATE hf::se050)
 ```
 

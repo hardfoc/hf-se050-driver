@@ -15,8 +15,11 @@ options, and the memory the driver uses.
 | `SetReadRetries(n)` | 6 | The chip NACKs for longer than retries × delay (slow configurations, low bus speed) |
 | `SetReadRetryDelayMs(ms)` | 2 ms | Same; together with retries it bounds how long a read waits |
 | `SetMaxWtxRequests(n)` | 8 | Long operations (RSA, key generation) end in `Error::Protocol` after many WTX requests |
+| `SetMaxRetransmissions(n)` | 3 | A noisy bus ends exchanges in `Error::Crc` although single blocks get through |
+| `SetIfsc(n)` | 254 | Never by hand in normal use: `GetAnswerToReset()` sets it from the SE050's ATR |
 
-Each setter has a getter (`InterFrameDelayMs()`, `ReadRetries()`, `ReadRetryDelayMs()`, `MaxWtxRequests()`). The
+Each setter has a getter (`InterFrameDelayMs()`, `ReadRetries()`, `ReadRetryDelayMs()`, `MaxWtxRequests()`,
+`MaxRetransmissions()`, `Ifsc()`). The
 settings live in the `T1Session` of each device object and apply to every later exchange.
 
 ## Address and ENA
@@ -52,7 +55,8 @@ cycles; see [`hf_se050_esp_i2c.hpp`](../examples/esp32/main/include/hf_se050_esp
 | `se050::kMaxApduCommandBytes` | 892 | Largest C-APDU the builders produce |
 | `se050::kMaxApduResponseBytes` | 892 | Largest R-APDU buffer the commands use |
 | `se050::t1::kMaxInformationField` | 254 | INF bytes per T=1 block |
-| `se050::scp03::kWrapScratchBytes` | 320 | Minimum size of the buffer for `BindScp03WrapScratch()` |
+| `se050::scp03::kWrapScratchBytes` | 320 | Minimum size of the buffer for `BindScp03WrapScratch()` (short commands) |
+| `se050::scp03::kWrapScratchBytesExtended` | 925 | Wrap buffer size for any command, extended ones included |
 
 ## Buffers and stack
 

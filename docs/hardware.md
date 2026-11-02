@@ -111,8 +111,9 @@ From the [SE050 errata sheet](https://www.nxp.com/docs/en/errata/SE050_Erratashe
 - **I2C.1, lock-up on an erroneous APDU sequence.** A command written before the previous response was read in
   full can make the SE050 stretch SCL forever (when clock stretching is on), until it is power-cycled. A host that
   resets in the middle of an exchange causes exactly this. The driver always reads a response to the end; after a
-  host reset, power-cycle the SE050 (ENA or supply) before the first command: wire ENA and call
-  `HardwareReset()` first.
+  host reset, follow NXP's workaround (3.1.3) and read from the SE050 before the first command:
+  `T1().RecoverAfterHostReset()` reads any pending answer and resynchronises. Once the bus is locked only a power
+  cycle helps: wire ENA so `HardwareReset()` can do it.
 - **I2C.2, empty frame.** An acknowledged address-only frame (START, address, STOP) also makes the SE050 stretch
   the clock forever. The driver never sends one and `Session::TransceiveRaw()` rejects a zero-length write. Do not
   run an I2C bus scan with the SE050 on the bus.
@@ -122,8 +123,8 @@ From the [SE050 errata sheet](https://www.nxp.com/docs/en/errata/SE050_Erratashe
 - **I2C.4, edge timing.** SCL must change before SDA with a margin: data hold time (50 % to 50 %) at least 8 ns
   for a falling and 24 ns for a rising SDA edge in fast mode. Check your I2C controller's hold-time setting.
 - **JOS.2, SCP03 counter.** Inside a platform SCP03 session, a command without command data does not advance the
-  SE050's encryption counter, and the next command fails. See
-  [Security model](security.md#protect-the-bus-with-scp03).
+  SE050's encryption counter, and the next command fails. The driver applies NXP's workaround (3.13.3): every
+  wrapped command carries encrypted data. See [Security model](security.md#protect-the-bus-with-scp03).
 
 !!! danger "One host per SE050, one command at a time"
     I2C.1 is why the driver is not thread-safe and must not be shared between tasks without a lock: two commands
