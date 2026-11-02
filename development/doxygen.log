@@ -1,5 +1,5 @@
-warning: ignoring unsupported tag 'PAGE_OUTLINE_PANEL' at line 1761, file /tmp/doxyfile.GZAjRo
-warning: Tag 'DOT_TRANSPARENT' at line 2784 of file '/tmp/doxyfile.GZAjRo' has become obsolete.
+warning: ignoring unsupported tag 'PAGE_OUTLINE_PANEL' at line 1761, file /tmp/doxyfile.S1K2ql
+warning: Tag 'DOT_TRANSPARENT' at line 2784 of file '/tmp/doxyfile.S1K2ql' has become obsolete.
          To avoid this warning please remove this line from your configuration file or upgrade it using "doxygen -u"
 /home/runner/work/hf-se050-driver/hf-se050-driver/docs/datasheet/README.md:2: warning: found more than one \mainpage comment block! (first occurrence: /home/runner/work/hf-se050-driver/hf-se050-driver/README.md, line 1), Skipping current block!
 /home/runner/work/hf-se050-driver/hf-se050-driver/examples/esp32/main/se050_aws_iot_lifecycle/README.md:1: warning: found more than one \mainpage comment block! (first occurrence: /home/runner/work/hf-se050-driver/hf-se050-driver/README.md, line 1), Skipping current block!
