@@ -6,6 +6,11 @@
  *          - NAD discipline (`0x5A` host → SE, `0xA5` SE → host),
  *          - I-block send/receive with **chaining** (M bit, `0x20`),
  *          - R-block **ACK** between chained blocks (`0x80` family),
+ *          - error recovery per ISO/IEC 7816-3 11.6.3: an invalid block from the SE is answered with an
+ *            R-block asking for it again, an R-block NACK from the SE makes the host send its last
+ *            I-block again (up to @ref SetMaxRetransmissions times),
+ *          - the SE's IFSC from the ATR / profile (@ref GetAnswerToReset) as the command block size,
+ *          - the start-up read of SE050 erratum I2C.1 (@ref RecoverAfterHostReset),
  *          - minimal **S-block** requests used during bring-up (`0xC6` warm reset, `0xC7` GET ATR),
  *          - CRC-16 EDC via @ref se050::crc.
  *
@@ -16,6 +21,7 @@
  */
 #pragma once
 
+#include "se050_atr.hpp"
 #include "se050_crc.hpp"
 #include "se050_types.hpp"
 
@@ -70,6 +76,20 @@ inline constexpr std::uint8_t kPcbSWtxResp = 0xE3U;
 [[nodiscard]] inline constexpr std::uint8_t IBlockSeqFromPcb(std::uint8_t pcb) noexcept {
     return static_cast<std::uint8_t>((pcb >> 6) & 1U);
 }
+/** @brief N(R) of an R-block: the sequence number of the I-block its sender expects next. */
+[[nodiscard]] inline constexpr std::uint8_t RBlockNrFromPcb(std::uint8_t pcb) noexcept {
+    return static_cast<std::uint8_t>((pcb >> 4) & 1U);
+}
+/** @brief R-block error code: EDC error (ISO/IEC 7816-3 11.4.3). */
+inline constexpr std::uint8_t kRBlockErrEdc = 0x01U;
+/** @brief R-block error code: other error (ISO/IEC 7816-3 11.4.3). */
+inline constexpr std::uint8_t kRBlockErrOther = 0x02U;
+/** @brief R-block asking for the block with sequence number @p nr again, with error code @p err. */
+[[nodiscard]] inline constexpr std::uint8_t RBlockNackPcb(std::uint8_t nr_bit, std::uint8_t err) noexcept {
+    return static_cast<std::uint8_t>(0x80U | ((nr_bit & 1U) << 4) | (err & 0x0FU));
+}
+/** @brief Default number of times one block is sent again before an exchange fails. */
+inline constexpr std::uint8_t kDefaultMaxRetransmissions = 3U;
 
 }  // namespace t1
 
@@ -101,6 +121,24 @@ public:
     void SetMaxWtxRequests(std::uint8_t max_wtx_requests) noexcept { max_wtx_requests_ = max_wtx_requests; }
 
     [[nodiscard]] std::uint8_t MaxWtxRequests() const noexcept { return max_wtx_requests_; }
+
+    /**
+     * @brief Information field size of the SE (IFSC): the largest INF the host puts in one I-block.
+     * @details Clamped to 1..254. @ref GetAnswerToReset sets it from the SE050's profile (DLLP IFSC).
+     */
+    void SetIfsc(std::size_t ifsc) noexcept {
+        ifsc_ = std::min<std::size_t>(std::max<std::size_t>(ifsc, 1U), t1::kMaxInformationField);
+    }
+
+    [[nodiscard]] std::size_t Ifsc() const noexcept { return ifsc_; }
+
+    /**
+     * @brief How many times one block is requested or sent again within an exchange before it fails
+     *        (ISO/IEC 7816-3 11.6.3). Default @ref t1::kDefaultMaxRetransmissions.
+     */
+    void SetMaxRetransmissions(std::uint8_t n) noexcept { max_retransmissions_ = n; }
+
+    [[nodiscard]] std::uint8_t MaxRetransmissions() const noexcept { return max_retransmissions_; }
 
     TransportT& Transport() noexcept { return transport_; }
     const TransportT& Transport() const noexcept { return transport_; }
@@ -162,7 +200,58 @@ public:
         }
         *len_out = ln;
         ResetSequenceState();
+        atr::Profile profile{};
+        if (atr::Parse(raw + 3U, ln, &profile) == Error::Ok && profile.ifsc != 0U) {
+            SetIfsc(profile.ifsc); /* honour the SE's block size for every later command */
+        }
         return Error::Ok;
+    }
+
+    /**
+     * @brief Start-up sequence for SE050 erratum I2C.1, then resynchronise the block numbers.
+     * @details Errata sheet Rev. 1.0, 3.1.3: if the host resets in the middle of an exchange, the SE050
+     *          may still hold an answer; writing the next command before it is read can make the SE050
+     *          stretch SCL until it is power-cycled. Call this once after the host starts, before the
+     *          first command: it reads (and discards) any pending block, then sends S(RESYNCH request)
+     *          and resets N(S)/N(R) on both sides. When nothing is pending the read is simply NACKed
+     *          (it costs @ref ReadRetries x @ref ReadRetryDelayMs). It cannot clear a lock-up that has
+     *          already happened: that needs a power cycle (`HardwareReset()`).
+     */
+    [[nodiscard]] Error RecoverAfterHostReset(std::uint32_t timeout_ms) noexcept {
+        if (!transport_.EnsureInitialized()) {
+            return Error::NotInitialized;
+        }
+        std::uint8_t raw[t1::kMaxRawBlockBytes]{};
+        std::size_t raw_len = 0;
+        /* Ok or Crc: a stale block was drained. Transport or Timeout: nothing was pending. */
+        (void)RecvT1Block(raw, sizeof(raw), &raw_len, timeout_ms);
+        ResetSequenceState();
+        const Error se = SendSBlock(t1::kPcbSResyncReq, timeout_ms);
+        if (se != Error::Ok) {
+            return se;
+        }
+        std::uint8_t wtx_count = 0;
+        for (int guard = 0; guard < 16; ++guard) {
+            const Error re = RecvT1Block(raw, sizeof(raw), &raw_len, timeout_ms);
+            if (re != Error::Ok) {
+                return re;
+            }
+            if (raw[0] != t1::kNadSeToHost) {
+                return Error::Protocol;
+            }
+            if (raw[1] == t1::kPcbSResyncResp) {
+                ResetSequenceState();
+                return Error::Ok;
+            }
+            if (raw[1] != t1::kPcbSWtxReq) {
+                return Error::Protocol;
+            }
+            const Error w = HandleSBlock(raw, raw_len, timeout_ms, &wtx_count);
+            if (w != Error::Ok) {
+                return w;
+            }
+        }
+        return Error::Protocol;
     }
 
     /**
@@ -191,27 +280,25 @@ public:
             return Error::NotInitialized;
         }
 
+        std::uint8_t retransmissions = 0;
         std::size_t off = 0;
-        std::uint8_t ns_host = host_ns_;
         while (off < cmd_len) {
-            const std::size_t chunk =
-                std::min(cmd_len - off, static_cast<std::size_t>(t1::kMaxInformationField));
+            const std::size_t chunk = std::min(cmd_len - off, ifsc_);
             const bool more_chain = (off + chunk) < cmd_len;
-            const std::uint8_t pcb = t1::IBlockPcb(ns_host, more_chain);
+            const std::uint8_t pcb = t1::IBlockPcb(host_ns_, more_chain);
             const Error w = SendRawBlock(pcb, cmd + off, static_cast<std::uint8_t>(chunk), timeout_ms);
             if (w != Error::Ok) {
                 return w;
             }
-            ns_host ^= 1U;
+            host_ns_ ^= 1U;
             off += chunk;
             if (more_chain) {
-                const Error rr = ExpectRBlockFromCard(timeout_ms);
+                const Error rr = ExpectChainAck(timeout_ms, &retransmissions);
                 if (rr != Error::Ok) {
                     return rr;
                 }
             }
         }
-        host_ns_ = ns_host;
 
         std::size_t total_rx = 0;
         std::uint8_t wtx_count = 0;
@@ -219,6 +306,18 @@ public:
             std::uint8_t raw[t1::kMaxRawBlockBytes]{};
             std::size_t raw_len = 0;
             const Error rb = RecvT1Block(raw, sizeof(raw), &raw_len, timeout_ms);
+            if (rb == Error::Crc) {
+                /* ISO/IEC 7816-3 11.6.3: ask for the block again with R(N(R) = expected, EDC error). */
+                if (++retransmissions > max_retransmissions_) {
+                    return Error::Crc;
+                }
+                const Error n = SendRawBlock(t1::RBlockNackPcb(card_ns_, t1::kRBlockErrEdc), nullptr, 0U,
+                                             timeout_ms);
+                if (n != Error::Ok) {
+                    return n;
+                }
+                continue;
+            }
             if (rb != Error::Ok) {
                 return rb;
             }
@@ -235,8 +334,20 @@ public:
                 }
                 continue;
             }
-            if (!t1::IsIBlock(raw[1])) {
-                return Error::Protocol;
+            if (t1::IsRBlock(raw[1])) {
+                /* The SE rejected our last I-block (N(R) = its N(S)): send it again. */
+                if (t1::RBlockNrFromPcb(raw[1]) != static_cast<std::uint8_t>(host_ns_ ^ 1U) ||
+                    last_iblock_len_ == 0U) {
+                    return Error::Protocol;
+                }
+                if (++retransmissions > max_retransmissions_) {
+                    return Error::Protocol;
+                }
+                const Error rt = RetransmitLastIBlock(timeout_ms);
+                if (rt != Error::Ok) {
+                    return rt;
+                }
+                continue;
             }
             const std::uint8_t seq = t1::IBlockSeqFromPcb(raw[1]);
             if (seq != card_ns_) {
@@ -293,6 +404,10 @@ private:
             std::memcpy(frame + 3U, inf, inf_len);
         }
         crc::AppendEdc(frame, 3U + inf_len);
+        if (t1::IsIBlock(pcb)) {
+            std::memcpy(last_iblock_, frame, 3U + inf_len + 2U);
+            last_iblock_len_ = 3U + inf_len + 2U;
+        }
         const Error e = transport_.Write(frame, 3U + inf_len + 2U, timeout_ms);
         if (e != Error::Ok) {
             return e;
@@ -332,12 +447,37 @@ private:
         return Error::Ok;
     }
 
-    [[nodiscard]] Error ExpectRBlockFromCard(std::uint32_t timeout_ms) noexcept {
+    [[nodiscard]] Error RetransmitLastIBlock(std::uint32_t timeout_ms) noexcept {
+        const Error e = transport_.Write(last_iblock_, last_iblock_len_, timeout_ms);
+        if (e != Error::Ok) {
+            return e;
+        }
+        transport_.delay_ms(inter_frame_delay_ms_);
+        return Error::Ok;
+    }
+
+    /**
+     * @brief Wait for the SE's R-block acknowledging a chained I-block (N(R) = next N(S)).
+     * @details An R-block whose N(R) equals the block just sent is a NACK: send it again. A block with a
+     *          bad EDC is asked for again. Both count against @ref SetMaxRetransmissions.
+     */
+    [[nodiscard]] Error ExpectChainAck(std::uint32_t timeout_ms, std::uint8_t* retransmissions) noexcept {
         std::uint8_t wtx_count = 0;
         for (int guard = 0; guard < 16; ++guard) {
             std::uint8_t raw[t1::kMaxRawBlockBytes]{};
             std::size_t raw_len = 0;
             const Error e = RecvT1Block(raw, sizeof(raw), &raw_len, timeout_ms);
+            if (e == Error::Crc) {
+                if (++(*retransmissions) > max_retransmissions_) {
+                    return Error::Crc;
+                }
+                const Error n = SendRawBlock(t1::RBlockNackPcb(card_ns_, t1::kRBlockErrEdc), nullptr, 0U,
+                                             timeout_ms);
+                if (n != Error::Ok) {
+                    return n;
+                }
+                continue;
+            }
             if (e != Error::Ok) {
                 return e;
             }
@@ -354,7 +494,16 @@ private:
             if (!t1::IsRBlock(raw[1])) {
                 return Error::Protocol;
             }
-            return Error::Ok;
+            if (t1::RBlockNrFromPcb(raw[1]) == host_ns_) {
+                return Error::Ok; /* acknowledged: the SE expects the next N(S) */
+            }
+            if (++(*retransmissions) > max_retransmissions_) {
+                return Error::Protocol;
+            }
+            const Error rt = RetransmitLastIBlock(timeout_ms);
+            if (rt != Error::Ok) {
+                return rt;
+            }
         }
         return Error::Protocol;
     }
@@ -407,6 +556,10 @@ private:
     std::uint8_t max_wtx_requests_{8};
     std::uint8_t host_ns_{0};
     std::uint8_t card_ns_{0};
+    std::size_t ifsc_{t1::kMaxInformationField};
+    std::uint8_t max_retransmissions_{t1::kDefaultMaxRetransmissions};
+    std::uint8_t last_iblock_[t1::kMaxRawBlockBytes]{};
+    std::size_t last_iblock_len_{0};
 };
 
 }  // namespace se050
