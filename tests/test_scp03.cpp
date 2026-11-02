@@ -187,6 +187,23 @@ TEST_CASE("SCP03: MAC comparison helper compares every byte") {
   CHECK(AllZero(wipe, sizeof(wipe)));
 }
 
+TEST_CASE("SCP03 erratum JOS.2: a command without data carries an encrypted padding block") {
+  Rig r;
+  r.card.jos2_bug = true; // SE050 errata sheet 3.13: no counter increment without C-DATA
+  REQUIRE(r.Open());
+  se050::cmd::VersionInfo v{};
+  REQUIRE(r.se.GetVersion(&v, 100) == Error::Ok);
+  CHECK_EQ(v.applet_major, 3U);
+  REQUIRE(r.card.had_cdata.size() == 1U);
+  CHECK(r.card.had_cdata[0]); // workaround 3.13.3: append command data (case 4)
+  CHECK(r.card.plain[0] == (Bytes{0x80, 0x04, 0x00, 0x20, 0x00}));
+  // The next command still decrypts on the card: the counters agree.
+  std::uint8_t out[32]{};
+  std::size_t out_len = 0;
+  CHECK(r.se.GetRandom(32, out, sizeof(out), &out_len, 100) == Error::Ok);
+  CHECK(r.se.Scp03().IsOpen());
+}
+
 TEST_CASE("SCP03 wraps an extended command as extended and keeps its data and Le") {
   Rig r;
   REQUIRE(r.Open());

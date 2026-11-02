@@ -123,7 +123,8 @@ struct CommandFields {
  *          length when the input did or when the new Lc exceeds 255. When the input had an Le, the
  *          wrapped command keeps one, set to the maximum (`00`, or `00 00` extended): the protected
  *          answer is longer than the plain one by its padding and R-MAC, so the plain Ne cannot be
- *          reused. Le is not covered by the C-MAC.
+ *          reused. Le is not covered by the C-MAC. A command without data still gets one encrypted
+ *          padding block (SE050 erratum JOS.2, see the comment in the body).
  *          Caller owns @p out (CM4: D2 `.se_apdu_scratch`); @ref kWrapScratchBytes covers short
  *          commands, @ref kWrapScratchBytesExtended any command. Updates the MCV. The command counter
  *          moves on in @ref UnwrapResponse once the card has answered.
@@ -147,7 +148,12 @@ struct CommandFields {
         return pe;
     }
 
-    const std::size_t enc_len = (f.data_len > 0U) ? ((f.data_len / 16U) + 1U) * 16U : 0U;
+    /* SE050 erratum JOS.2 (errata sheet Rev. 1.0, 3.13): inside platform SCP03 the SE050 does not advance
+     * its encryption counter for a command without C-DATA, and the next command fails. Workaround 3.13.3:
+     * append command data. Every command is therefore padded and encrypted, an empty one as a single
+     * `80 00 .. 00` block, so a case 1 command goes out as case 3 and a case 2 as case 4; the card
+     * decrypts the block back to no data and both counters advance. */
+    const std::size_t enc_len = ((f.data_len / 16U) + 1U) * 16U;
     const std::size_t lc = enc_len + kMacFieldLen;
     const bool extended = f.extended || lc > 255U;
     if (lc > 0xFFFFU) {
@@ -171,8 +177,10 @@ struct CommandFields {
         out[4] = static_cast<std::uint8_t>(lc);
     }
 
-    if (enc_len > 0U) {
-        std::memmove(out + hdr, f.data, f.data_len);
+    {
+        if (f.data_len > 0U) {
+            std::memmove(out + hdr, f.data, f.data_len);
+        }
         std::size_t padded = f.data_len;
         if (!crypto::IsoPad80(out + hdr, &padded, enc_len) || padded != enc_len) {
             crypto::SecureZero(out, out_cap);
