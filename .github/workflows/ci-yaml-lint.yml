@@ -8,10 +8,13 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   yamllint:
     name: YAML Lint
-    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-yaml-lint.yml@main
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-yaml-lint.yml@v1
     with:
       paths: '.github/workflows/*.yml,**/*.yml,**/*.yaml'
       config_file: '_config/.yamllint'

@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: docs-versioned-${{ github.ref }}
@@ -20,7 +18,7 @@ concurrency:
 
 jobs:
   publish-docs:
-    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-docs-publish.yml@main
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-docs-publish.yml@v1
     with:
       # =============================================================================
       # Repository Configuration

@@ -19,7 +19,7 @@ concurrency:
 jobs:
   test-cppcheck:
     name: Test C++ Static Analysis (Cppcheck)
-    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-cpp-analysis.yml@main
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-cpp-analysis.yml@v1
     with:
       # =============================================================================
       # Analysis Paths
