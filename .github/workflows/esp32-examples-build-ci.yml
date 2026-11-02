@@ -86,3 +86,14 @@ jobs:
       files_changed_only: false
       step_summary: true
       file_annotations: true
+
+  # ✅ Single required check: passes only if every job above passed
+  ci-gate:
+    name: CI gate
+    needs: [validate, build, lint]
+    if: always()
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-ci-gate.yml@v1
+    permissions:
+      contents: read
+    with:
+      needs_json: ${{ toJSON(needs) }}
