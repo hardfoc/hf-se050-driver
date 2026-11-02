@@ -42,7 +42,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME = "HF-SE050 Driver"
+PROJECT_NAME           = "SE050 Driver"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -54,7 +54,7 @@ PROJECT_NUMBER         =
 # for a project that appears at the top of each page and should give viewer a
 # quick idea about the purpose of the project. Keep the description short.
 
-PROJECT_BRIEF          = "HF-SE050 C++ Driver"
+PROJECT_BRIEF          = "API reference"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
@@ -172,7 +172,7 @@ INLINE_INHERITED_MEMB  = NO
 # shortest path that makes the file name unique will be used
 # The default value is: YES.
 
-FULL_PATH_NAMES        = YES
+FULL_PATH_NAMES        = NO
 
 # The STRIP_FROM_PATH tag can be used to strip a user-defined part of the path.
 # Stripping is only done if one of the specified strings matches the left-hand
@@ -184,7 +184,7 @@ FULL_PATH_NAMES        = YES
 # will be relative from the directory where doxygen is started.
 # This tag requires that the tag FULL_PATH_NAMES is set to YES.
 
-STRIP_FROM_PATH        =
+STRIP_FROM_PATH        = .
 
 # The STRIP_FROM_INC_PATH tag can be used to strip a user-defined part of the
 # path mentioned in the documentation of a class, which tells the reader which
@@ -629,7 +629,7 @@ INTERNAL_DOCS          = NO
 # Possible values are: SYSTEM, NO and YES.
 # The default value is: SYSTEM.
 
-CASE_SENSE_NAMES       = SYSTEM
+CASE_SENSE_NAMES       = NO
 
 # If the HIDE_SCOPE_NAMES tag is set to NO then doxygen will show members with
 # their full class and namespace scopes in the documentation. If set to YES, the
@@ -943,7 +943,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT = inc README.md docs examples/esp32/main
+INPUT                  = inc docs/_doxygen/mainpage.md
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1047,8 +1047,7 @@ RECURSIVE              = YES
 # Note that relative paths are relative to the directory from which doxygen is
 # run.
 
-EXCLUDE                = examples/esp32/build \
-                         examples/esp32/scripts
+EXCLUDE                = examples/esp32/build examples/esp32/scripts
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -1078,7 +1077,7 @@ EXCLUDE_SYMBOLS        =
 # that contain example code fragments that are included (see the \include
 # command).
 
-EXAMPLE_PATH           = examples/esp32/main
+EXAMPLE_PATH           =
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp and
 # *.h) to filter out the source-files in the directories. If left blank all
 # files are included.
@@ -1158,7 +1157,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = README.md
+USE_MDFILE_AS_MAINPAGE = docs/_doxygen/mainpage.md
 
 # The Fortran standard specifies that for fixed formatted Fortran code all
 # characters from position 72 are to be considered as comment. A common
@@ -2472,8 +2471,9 @@ TAGFILES               =
 # tag file that is based on the input files it reads. See section "Linking to
 # external documentation" for more information about the usage of tag files.
 
-# Tag file for optional cross-tree linking (do not point TAGFILES at a missing
-# file — generate this tree first, then add TAGFILES in the consumer Doxyfile).
+GENERATE_TAGFILE       =
+
+# If the ALLEXTERNALS tag is set to YES, all external classes and namespaces
 # will be listed in the class and namespace index. If set to NO, only the
 # inherited external classes will be listed.
 # The default value is: NO.

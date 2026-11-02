@@ -2,7 +2,7 @@
 # Documentation: strict MkDocs build, figure / generated-region checks, Doxygen under /api/, offline link check,
 # Lighthouse budget and screenshots on pull requests; publish to gh-pages with mike (main -> dev, vX.Y.Z tag ->
 # that version + latest). Inputs: docs/ru-mkdocs-publish.md in hardfoc/hf-general-ci-tools.
-name: Docs
+name: 📚 Docs
 
 on:
   push:

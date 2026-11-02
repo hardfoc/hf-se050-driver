@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate API HTML from _config/Doxyfile (same entry point as CI: ci-docs-publish.yml).
+# Generate API HTML from Doxyfile (same entry point as CI: ci-docs-publish.yml).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -10,5 +10,5 @@ if ! command -v doxygen >/dev/null 2>&1; then
   exit 1
 fi
 echo "Running doxygen from: $ROOT"
-doxygen _config/Doxyfile
-echo "Done. Default HTML output: docs/html/ (OUTPUT_DIRECTORY=docs, HTML_OUTPUT=html in _config/Doxyfile)."
+mkdir -p build/doxygen && doxygen Doxyfile
+echo "Done. HTML output: build/doxygen/html/ (OUTPUT_DIRECTORY, HTML_OUTPUT in Doxyfile)."
