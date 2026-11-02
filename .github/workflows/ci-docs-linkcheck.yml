@@ -19,7 +19,7 @@ concurrency:
 jobs:
   test-linkcheck:
     name: Test Documentation Link Check
-    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-docs-linkcheck.yml@main
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-docs-linkcheck.yml@v1
     with:
       # =============================================================================
       # Repository Configuration

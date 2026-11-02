@@ -20,7 +20,7 @@ concurrency:
 jobs:
   test-cpp-lint:
     name: Test C++ Linting Tools
-    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-cpp-lint.yml@main
+    uses: hardfoc/hf-general-ci-tools/.github/workflows/ru-cpp-lint.yml@v1
     with:
       clang_version: "20"
       clang_format_config: "_config/.clang-format"
