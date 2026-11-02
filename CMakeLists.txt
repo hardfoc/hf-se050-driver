@@ -24,6 +24,13 @@ if(HF_SE050_ENABLE_WARNINGS)
   target_compile_options(${HF_SE050_TARGET_NAME} INTERFACE -Wall -Wextra -Wpedantic)
 endif()
 
+# ── Host unit tests (T=1 model; no hardware) ────────────────────────────────
+option(HF_SE050_BUILD_TESTS "Build the host unit tests in tests/" OFF)
+if(HF_SE050_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(

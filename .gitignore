@@ -142,3 +142,4 @@ Thumbs.db
 # -----------------------------------------------------------------------------
 _local_reference/**
 !_local_reference/README.md
+site/

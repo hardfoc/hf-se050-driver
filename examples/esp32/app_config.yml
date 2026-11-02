@@ -11,7 +11,7 @@ metadata:
 
 apps:
   se050_minimal_example:
-    description: "Bring-up: reset, T=1 warm reset, GET ATR, SELECT default applet"
+    description: "Bring-up: power cycle, T=1 reset, ATR, SELECT of the IoT applet"
     source_file: "se050_minimal_example.cpp"
     category: "example"
     idf_versions: ["release/v5.5"]
@@ -24,7 +24,7 @@ apps:
       - "ATR/profile and applet selection smoke checks"
 
   se050_smoke_example:
-    description: "Smoke: init/reset/ATR/select/get-version/get-random/get-free-memory"
+    description: "Health check: ATR fields, applet version, random bytes, free memory"
     source_file: "se050_smoke_example.cpp"
     category: "test"
     idf_versions: ["release/v5.5"]
@@ -37,7 +37,7 @@ apps:
       - "Parses ATR profile and applet capabilities"
 
   se050_object_lifecycle_example:
-    description: "Object lifecycle: write/read/delete binary object"
+    description: "Write, read back and delete a binary object"
     source_file: "se050_object_lifecycle_example.cpp"
     category: "test"
     idf_versions: ["release/v5.5"]
@@ -51,7 +51,7 @@ apps:
       - "DeleteSecureObject cleanup"
 
   se050_cloud_onboarding_example:
-    description: "Cloud onboarding: EC P-256 keygen + ECDSA challenge sign/verify"
+    description: "Generate a P-256 key on chip, sign a challenge and verify the signature"
     source_file: "se050_cloud_onboarding_example.cpp"
     category: "example"
     idf_versions: ["release/v5.5"]
@@ -65,7 +65,7 @@ apps:
       - "Verify signature on-chip for provisioning sanity check"
 
   se050_secure_board_comms_example:
-    description: "App-layer comms: Sender signs payload hash, Receiver verifies it"
+    description: "Signed messages between two boards, with a counter and nonce against replay"
     source_file: "se050_secure_board_comms_example.cpp"
     category: "example"
     idf_versions: ["release/v5.5"]
@@ -79,7 +79,7 @@ apps:
       - "Shows proper anti-replay and nonce generation"
 
   se050_cloud_registration_packet_example:
-    description: "Cloud registration packet: key existence/create + pubkey + challenge signature"
+    description: "Registration payload: reuse or create a key, export the public key, sign a challenge"
     source_file: "se050_cloud_registration_packet_example.cpp"
     category: "example"
     idf_versions: ["release/v5.5"]
@@ -93,7 +93,7 @@ apps:
       - "Generate challenge and ECDSA signature for registration proof"
 
   se050_aws_iot_lifecycle:
-    description: "End-to-end IoT lifecycle: provision -> WiFi -> TLS id -> MQTT telemetry -> OTA verify"
+    description: "IoT lifecycle: provisioning, Wi-Fi, TLS identity, signed MQTT telemetry, OTA manifest check"
     source_file: "se050_aws_iot_lifecycle/se050_aws_iot_lifecycle.cpp"
     category: "example"
     idf_versions: ["release/v5.5"]

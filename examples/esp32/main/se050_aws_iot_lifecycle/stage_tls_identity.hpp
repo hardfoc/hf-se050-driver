@@ -115,7 +115,7 @@ inline void LogMbedTlsIntegrationRecipe()
              "  3) mbedtls_pk_setup(&pk, &se050_pk_info);\n"
              "     mbedtls_ssl_conf_own_cert(&conf, &dev_cert, &pk);\n"
              "  4) TLS 1.2/1.3 handshake now delegates to the SE050.\n"
-             "  Full reference impl in docs/security_iot_ota_comms.md.");
+             "  Full reference impl in docs/security.md.");
 }
 
 /**

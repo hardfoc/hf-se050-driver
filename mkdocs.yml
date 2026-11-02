@@ -1,0 +1,23 @@
+# Documentation site on the HardFOC MkDocs platform: theme, plugin and toolchain come from the hardfoc-mkdocs-theme
+# package in hardfoc/hf-general-ci-tools. Preview locally:
+#
+#   pip install "git+https://github.com/hardfoc/hf-general-ci-tools@v1\
+#   #subdirectory=packages/hardfoc-mkdocs-theme"      (one line, without the backslash)
+#   mkdocs serve                                     http://127.0.0.1:8000
+#   mkdocs build --strict                            what CI runs
+#   hardfoc-docs figures && hardfoc-docs gen         refresh figures and generated tables
+#
+# Pages: docs/, order: docs/.nav.yml, rules: docs/DOCS-STYLE-GUIDE.md in hf-general-ci-tools.
+site_name: SE050 Driver
+site_description: >-
+  Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C).
+  Part of the HardFOC ecosystem.
+repo_url: https://github.com/hardfoc/hf-se050-driver
+
+theme:
+  name: hardfoc
+
+plugins:
+  - hardfoc
+  - search
+  - awesome-nav

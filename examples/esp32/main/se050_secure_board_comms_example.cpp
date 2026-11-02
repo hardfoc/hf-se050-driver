@@ -28,7 +28,7 @@
  * ## What this demo purposely skips
  *  - **Confidentiality.** Adding AES-GCM on top is a one-liner with
  *    `mbedtls_gcm_crypt_and_tag` once you have an agreed symmetric key.
- *    See `docs/security_iot_ota_comms.md` for the full packet shape.
+ *    See `docs/security.md` for the full packet shape.
  *  - **Key agreement.** Both boards are assumed to share a common
  *    `ObjectId` pointing at the *same* ECDSA key for demo simplicity. In
  *    production each board has its own key and the peer knows the public
