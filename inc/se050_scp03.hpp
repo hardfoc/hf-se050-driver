@@ -175,7 +175,7 @@ struct ChannelState {
     crypto::CmacUpdate(cm, rapdu + rapdu_len - 2U, 2U);
     std::uint8_t mac_full[16]{};
     crypto::CmacFinish(cm, mac_full);
-    if (std::memcmp(mac_full, rapdu + rapdu_len - kMacFieldLen - 2U, kMacFieldLen) != 0) {
+    if (!crypto::ConstantTimeEqual(mac_full, rapdu + rapdu_len - kMacFieldLen - 2U, kMacFieldLen)) {
         st.open = false;
         return Error::Protocol;
     }
@@ -374,7 +374,7 @@ public:
         std::uint8_t expect_card[kCryptogramLen]{};
         if (!crypto::ComputeCryptogram(smac, crypto::kDeriveCardCryptogram, keys.host_challenge,
                                        card_challenge, expect_card) ||
-            std::memcmp(expect_card, card_cryptogram, kCryptogramLen) != 0) {
+            !crypto::ConstantTimeEqual(expect_card, card_cryptogram, kCryptogramLen)) {
             return Error::Protocol;
         }
 

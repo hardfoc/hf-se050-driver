@@ -13,6 +13,7 @@ add_executable(hf_se050_host_tests
   test_main.cpp
   test_t1.cpp
   test_apdu.cpp
+  test_scp03.cpp
 )
 
 target_link_libraries(hf_se050_host_tests PRIVATE ${HF_SE050_TARGET_NAME})
