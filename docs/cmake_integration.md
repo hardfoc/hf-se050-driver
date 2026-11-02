@@ -1,11 +1,3 @@
----
-layout: default
-title: "CMake integration"
-nav_order: 6
-parent: "📚 Documentation"
-permalink: /docs/cmake_integration/
----
-
 # CMake integration
 
 Host / generic CMake:

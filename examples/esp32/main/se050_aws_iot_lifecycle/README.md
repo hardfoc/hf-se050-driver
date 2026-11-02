@@ -1,4 +1,4 @@
-# SE050 → AWS IoT — Full Device Lifecycle Example
+# SE050 AWS IoT — Full Device Lifecycle Example
 
 This is the **headline end-to-end example** for the HF-SE050 driver.
 It walks a single ESP32-S3 + NXP SE050 board through every phase of a

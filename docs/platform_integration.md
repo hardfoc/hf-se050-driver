@@ -1,12 +1,3 @@
----
-layout: default
-title: "Platform integration"
-description: "CRTP I2C transport for SE050"
-nav_order: 4
-parent: "📚 Documentation"
-permalink: /docs/platform_integration/
----
-
 # Platform integration (CRTP transport)
 
 The driver is built around **`se050::I2cTransceiveInterface<Derived>`** — compile-time polymorphism with zero virtual calls, matching other `hf-*-driver` repos.

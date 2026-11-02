@@ -1,11 +1,3 @@
----
-layout: default
-title: "Installation"
-nav_order: 3
-parent: "📚 Documentation"
-permalink: /docs/installation/
----
-
 # Installation
 
 - **C++17** or newer for consumers.  

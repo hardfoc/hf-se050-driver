@@ -1,11 +1,3 @@
----
-layout: default
-title: "Security Flows (IoT / OTA / Comms)"
-nav_order: 8
-parent: "📚 Documentation"
-permalink: /docs/security_iot_ota_comms/
----
-
 # Security flows with SE050 (easy-to-follow)
 
 This page explains how to reason about security with this driver and how each example maps to real IoT deployment steps.

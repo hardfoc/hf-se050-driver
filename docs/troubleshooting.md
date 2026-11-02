@@ -1,11 +1,3 @@
----
-layout: default
-title: "Troubleshooting"
-nav_order: 8
-parent: "📚 Documentation"
-permalink: /docs/troubleshooting/
----
-
 # Troubleshooting
 
 - **`APP_TYPE not defined`** — always configure through `examples/esp32/scripts/build_app.sh` (or pass `-DAPP_TYPE=...` to CMake as in CI).  

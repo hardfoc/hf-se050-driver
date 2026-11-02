@@ -1,12 +1,3 @@
----
-layout: default
-title: "📖 API reference"
-description: "SE050 driver API (Phase 1)"
-nav_order: 9
-parent: "📚 Documentation"
-permalink: /docs/api_reference/
----
-
 # API reference (Phase 1)
 
 | Header | Types |

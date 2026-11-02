@@ -1,11 +1,3 @@
----
-layout: default
-title: "Hardware setup"
-nav_order: 5
-parent: "📚 Documentation"
-permalink: /docs/hardware_setup/
----
-
 # Hardware setup
 
 **TBD** after board wiring is fixed. Expect:

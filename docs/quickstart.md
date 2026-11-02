@@ -1,11 +1,3 @@
----
-layout: default
-title: "Quick start"
-nav_order: 4
-parent: "📚 Documentation"
-permalink: /docs/quickstart/
----
-
 # Quick start
 
 1. Initialize `examples/esp32/scripts` (`git submodule update --init --recursive`).  

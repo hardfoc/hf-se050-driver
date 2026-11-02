@@ -1,11 +1,3 @@
----
-layout: default
-title: "Datasheet & links"
-nav_order: 10
-parent: "📚 Documentation"
-permalink: /docs/datasheet/
----
-
 # Datasheet and manufacturer links
 
 ## NXP (public)
