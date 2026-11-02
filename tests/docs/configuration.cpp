@@ -16,6 +16,6 @@ void configure(se050::Device<MyI2c>& se) {
 }
 
 // --8<-- [start:address]
-MyI2c i2c_default;                       // 0x48, ENA not wired
-MyI2c i2c_second(0x49, /*ena_gpio=*/21); // a part ordered with another address, ENA on GPIO 21
+MyI2c i2c_default;                         // 0x48, ENA not wired
+MyI2c i2c_on_board(0x48, /*ena_gpio=*/21); // ENA wired to GPIO 21
 // --8<-- [end:address]

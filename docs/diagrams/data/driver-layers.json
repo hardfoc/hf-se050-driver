@@ -1,0 +1,39 @@
+{
+  "commands": [
+    "TransmitApdu",
+    "SelectDefaultIoTApplet",
+    "SelectCardManager",
+    "GetVersion",
+    "GetRandom",
+    "GetFreeMemory",
+    "WriteBinary",
+    "ReadObject",
+    "DeleteSecureObject",
+    "CheckObjectExists",
+    "ReadPublicEcKey",
+    "GenerateEcKeyPair",
+    "EcdsaSign",
+    "EcdsaVerify",
+    "WriteAesKey",
+    "CipherAesEcb",
+    "UnwrapAes256Rfc3394"
+  ],
+  "t1": [
+    "ChipWarmReset",
+    "GetAnswerToReset",
+    "ExchangeInformation"
+  ],
+  "port_hooks": [
+    "EnsureInitialized",
+    "I2cWrite",
+    "I2cRead",
+    "Transceive",
+    "HardwareReset",
+    "delay_ms_impl"
+  ],
+  "sources": [
+    "inc/se050_device.hpp:Device commands",
+    "inc/se050_t1_session.hpp:T1Session",
+    "inc/se050_i2c_transport_interface.hpp:Derived requirements"
+  ]
+}

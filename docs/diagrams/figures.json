@@ -1,0 +1,15 @@
+{
+  "driver-layers": {
+    "title": "Three layers, one of them yours",
+    "alt": "Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050.",
+    "description": "From top to bottom. Your application talks to one se050::Device<Transport> object, whose public commands are listed from inc/se050_device.hpp. Each command builds an APDU, which the T=1 session (inc/se050_t1_session.hpp) frames into blocks with a CRC-16 EDC, chains and acknowledges; when an SCP03 session is open the APDU is wrapped first. The communication interface (se050::I2cTransceiveInterface in inc/se050_i2c_transport_interface.hpp) is a CRTP base. The platform port is the only code you write: the methods listed from that header's requirements. Below it is the SE050 on I2C.",
+    "profile": "overview",
+    "width": 1200,
+    "source": "docs/diagrams/figures/driver-layers.py",
+    "sources": [
+      "inc/se050_device.hpp:Device commands",
+      "inc/se050_t1_session.hpp:T1Session",
+      "inc/se050_i2c_transport_interface.hpp:Derived requirements"
+    ]
+  }
+}
