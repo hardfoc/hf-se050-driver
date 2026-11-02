@@ -74,6 +74,21 @@ bool AllZero(const std::uint8_t* p, std::size_t n) {
 
 } // namespace
 
+TEST_CASE("SCP03 opens against the card model and a protected command keeps its Le") {
+  Rig r;
+  REQUIRE(r.Open());
+  std::uint8_t out[32]{};
+  std::size_t out_len = 0;
+  REQUIRE(r.se.GetRandom(32, out, sizeof(out), &out_len, 100) == Error::Ok);
+  CHECK_EQ(out_len, 32U);
+  CHECK_EQ(out[0], 0xA5U);
+  REQUIRE(r.card.plain.size() == 1U);
+  // GPC Amd D 6.2.4: the card recovers exactly the case 4 command the host meant, Le included.
+  CHECK(r.card.plain[0] == (Bytes{0x80, 0x04, 0x00, 0x49, 0x04, 0x41, 0x02, 0x00, 0x20, 0x00}));
+  CHECK_EQ(r.card.wrapped[0].back(), 0x00U); // Le 00 after the C-MAC
+  CHECK(r.se.Scp03().IsOpen());
+}
+
 TEST_CASE("SCP03: an answer with only a status word is rejected and closes the channel") {
   Rig r;
   REQUIRE(r.Open());
@@ -170,5 +185,54 @@ TEST_CASE("SCP03: MAC comparison helper compares every byte") {
   std::uint8_t wipe[5] = {9, 9, 9, 9, 9};
   cr::SecureZero(wipe, sizeof(wipe));
   CHECK(AllZero(wipe, sizeof(wipe)));
+}
+
+TEST_CASE("SCP03 wraps an extended command as extended and keeps its data and Le") {
+  Rig r;
+  REQUIRE(r.Open());
+  Bytes data(400);
+  for (std::size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<std::uint8_t>(i);
+  }
+  REQUIRE(r.se.WriteBinary(kObj, data.data(), data.size(), false, 0, true, 400, 100) == Error::Ok);
+  std::uint8_t plain[se050::kMaxApduCommandBytes]{};
+  std::size_t plain_len = 0;
+  REQUIRE(se050::cmd::BuildWriteBinary(kObj, data.data(), data.size(), false, 0, true, 400, plain,
+                                       sizeof(plain), &plain_len) == Error::Ok);
+  REQUIRE(r.card.plain.size() == 1U);
+  CHECK(r.card.plain[0] == Bytes(plain, plain + plain_len));
+  const Bytes& w = r.card.wrapped[0];
+  CHECK_EQ(w[4], 0x00U); // extended Lc: 00 Lc_hi Lc_lo
+  const std::size_t lc = static_cast<std::size_t>(w[5]) << 8 | w[6];
+  CHECK_EQ(w.size(), 7U + lc + 2U); // two-byte Le after the C-MAC
+}
+
+TEST_CASE("SCP03 command parsing covers ISO/IEC 7816-4 cases 1, 2, 3 and 4, short and extended") {
+  se050::scp03::CommandFields f{};
+  const std::uint8_t c1[] = {0x80, 0x04, 0x00, 0x20};
+  REQUIRE(se050::scp03::ParseCommand(c1, sizeof(c1), &f) == Error::Ok);
+  CHECK(!f.has_le);
+  CHECK_EQ(f.data_len, 0U);
+  const std::uint8_t c2[] = {0x80, 0x04, 0x00, 0x20, 0x00};
+  REQUIRE(se050::scp03::ParseCommand(c2, sizeof(c2), &f) == Error::Ok);
+  CHECK(f.has_le);
+  const std::uint8_t c3[] = {0x80, 0x04, 0x00, 0x20, 0x02, 0xAA, 0xBB};
+  REQUIRE(se050::scp03::ParseCommand(c3, sizeof(c3), &f) == Error::Ok);
+  CHECK(!f.has_le);
+  CHECK_EQ(f.data_len, 2U);
+  const std::uint8_t c4[] = {0x80, 0x04, 0x00, 0x20, 0x02, 0xAA, 0xBB, 0x00};
+  REQUIRE(se050::scp03::ParseCommand(c4, sizeof(c4), &f) == Error::Ok);
+  CHECK(f.has_le);
+  const std::uint8_t c2e[] = {0x80, 0x04, 0x00, 0x20, 0x00, 0x01, 0x00};
+  REQUIRE(se050::scp03::ParseCommand(c2e, sizeof(c2e), &f) == Error::Ok);
+  CHECK(f.extended);
+  CHECK(f.has_le);
+  const std::uint8_t c4e[] = {0x80, 0x04, 0x00, 0x20, 0x00, 0x00, 0x02, 0xAA, 0xBB, 0x00, 0x00};
+  REQUIRE(se050::scp03::ParseCommand(c4e, sizeof(c4e), &f) == Error::Ok);
+  CHECK(f.extended);
+  CHECK(f.has_le);
+  CHECK_EQ(f.data_len, 2U);
+  const std::uint8_t bad[] = {0x80, 0x04, 0x00, 0x20, 0x05, 0xAA};
+  CHECK(se050::scp03::ParseCommand(bad, sizeof(bad), &f) == Error::Protocol);
 }
 

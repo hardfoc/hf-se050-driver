@@ -36,7 +36,7 @@ inline constexpr std::uint8_t kSecLevelCmacCencRmacRenc = 0x33U;
 inline constexpr std::size_t kInitUpdateRspMin = 10U + 3U + 8U + 8U + 2U;
 inline constexpr std::uint8_t kClaSmBit = 0x04U;
 inline constexpr std::size_t kMacFieldLen = 8U;
-/** @brief Short-APDU wrap workspace (CM4: D2 `.se_apdu_scratch`, not task stack). */
+/** @brief Minimum wrap workspace, enough for short APDUs (CM4: D2 `.se_apdu_scratch`, not task stack). */
 inline constexpr std::size_t kWrapScratchBytes = 320U;
 
 /** @brief Runtime static keys (never compiled-in NXP defaults). */
@@ -60,11 +60,73 @@ struct ChannelState {
     std::uint8_t counter[16]{};
 };
 
+/** @brief Wrap workspace for any command up to @ref kMaxApduCommandBytes (extended header, padding, MAC, Le). */
+inline constexpr std::size_t kWrapScratchBytesExtended = kMaxApduCommandBytes + 7U + 16U + kMacFieldLen + 2U;
+
+/** @brief A C-APDU split into its ISO/IEC 7816-4 section 5.1 fields. */
+struct CommandFields {
+    const std::uint8_t* data{nullptr};
+    std::size_t data_len{0};
+    bool extended{false};  ///< Lc / Le were in extended form (cases 2E, 3E, 4E)
+    bool has_le{false};    ///< an Le field was present (cases 2 and 4)
+};
+
 /**
- * @brief C-MAC + C-ENC wrap of a short C-APDU (this C2 rejects extended Lc).
- * @details Caller owns @p out. On CM4 put @p out in D2 `.se_apdu_scratch`.
- *          Updates MCV. Does not increment the command counter (host
- *          increments in @ref UnwrapResponse after the card replies).
+ * @brief Split a serialized C-APDU into data and Le (ISO/IEC 7816-4 section 5.1, cases 1, 2S/E, 3S/E, 4S/E).
+ * @return @ref Error::Protocol when the length bytes do not describe the buffer.
+ */
+[[nodiscard]] inline Error ParseCommand(const std::uint8_t* capdu, std::size_t len, CommandFields* f) noexcept {
+    if (capdu == nullptr || f == nullptr || len < 4U) {
+        return Error::InvalidArgument;
+    }
+    *f = CommandFields{};
+    if (len == 4U) {
+        return Error::Ok; /* case 1 */
+    }
+    if (len == 5U) {
+        f->has_le = true; /* case 2S */
+        return Error::Ok;
+    }
+    if (capdu[4] != 0x00U) {
+        const std::size_t lc = capdu[4];
+        if (len == 5U + lc || len == 6U + lc) { /* case 3S / 4S */
+            f->data = capdu + 5U;
+            f->data_len = lc;
+            f->has_le = (len == 6U + lc);
+            return Error::Ok;
+        }
+        return Error::Protocol;
+    }
+    f->extended = true;
+    if (len == 7U) {
+        f->has_le = true; /* case 2E: 00 Le_hi Le_lo */
+        return Error::Ok;
+    }
+    const std::size_t lc = (static_cast<std::size_t>(capdu[5]) << 8) | capdu[6];
+    if (lc == 0U) {
+        return Error::Protocol;
+    }
+    if (len == 7U + lc || len == 9U + lc) { /* case 3E / 4E */
+        f->data = capdu + 7U;
+        f->data_len = lc;
+        f->has_le = (len == 9U + lc);
+        return Error::Ok;
+    }
+    return Error::Protocol;
+}
+
+/**
+ * @brief C-MAC + C-ENC wrap of a C-APDU in any ISO/IEC 7816-4 case, short or extended.
+ * @details GPC Amendment D 6.2.4 / 6.2.6: the command data is padded (`80 00..`) and encrypted with
+ *          the command ICV, then the MAC is computed over the MAC chaining value, the header (CLA with
+ *          the secure-messaging bit) and the new Lc and data. The wrapped command uses extended
+ *          length when the input did or when the new Lc exceeds 255. When the input had an Le, the
+ *          wrapped command keeps one, set to the maximum (`00`, or `00 00` extended): the protected
+ *          answer is longer than the plain one by its padding and R-MAC, so the plain Ne cannot be
+ *          reused. Le is not covered by the C-MAC.
+ *          Caller owns @p out (CM4: D2 `.se_apdu_scratch`); @ref kWrapScratchBytes covers short
+ *          commands, @ref kWrapScratchBytesExtended any command. Updates the MCV. The command counter
+ *          moves on in @ref UnwrapResponse once the card has answered.
  */
 [[nodiscard]] inline Error WrapCommand(ChannelState& st, const std::uint8_t* capdu,
                                        std::size_t capdu_len, std::uint8_t* out,
@@ -79,59 +141,66 @@ struct ChannelState {
     if (capdu == nullptr || out == nullptr || capdu_len < 4U) {
         return Error::InvalidArgument;
     }
-
-    const std::uint8_t cla = static_cast<std::uint8_t>(capdu[0] | kClaSmBit);
-    const std::uint8_t ins = capdu[1];
-    const std::uint8_t p1 = capdu[2];
-    const std::uint8_t p2 = capdu[3];
-    std::size_t data_len = 0;
-    const std::uint8_t* data = nullptr;
-    if (capdu_len > 4U) {
-        data_len = capdu[4];
-        if (data_len > 0U) {
-            if (capdu_len < (5U + data_len)) {
-                return Error::Protocol;
-            }
-            data = capdu + 5U;
-        }
+    CommandFields f{};
+    const Error pe = ParseCommand(capdu, capdu_len, &f);
+    if (pe != Error::Ok) {
+        return pe;
     }
 
-    std::size_t enc_len = 0;
-    if (data_len > 0U) {
-        if ((5U + data_len + 16U + kMacFieldLen) > out_cap) {
-            return Error::BufferTooSmall;
-        }
-        std::memcpy(out + 5U, data, data_len);
-        enc_len = data_len;
-        if (!crypto::IsoPad80(out + 5U, &enc_len, out_cap - 5U - kMacFieldLen)) {
+    const std::size_t enc_len = (f.data_len > 0U) ? ((f.data_len / 16U) + 1U) * 16U : 0U;
+    const std::size_t lc = enc_len + kMacFieldLen;
+    const bool extended = f.extended || lc > 255U;
+    if (lc > 0xFFFFU) {
+        return Error::InvalidArgument;
+    }
+    const std::size_t hdr = extended ? 7U : 5U;
+    const std::size_t le_len = f.has_le ? (extended ? 2U : 1U) : 0U;
+    if ((hdr + lc + le_len) > out_cap) {
+        return Error::BufferTooSmall;
+    }
+
+    out[0] = static_cast<std::uint8_t>(capdu[0] | kClaSmBit);
+    out[1] = capdu[1];
+    out[2] = capdu[2];
+    out[3] = capdu[3];
+    if (extended) {
+        out[4] = 0x00U;
+        out[5] = static_cast<std::uint8_t>((lc >> 8) & 0xFFU);
+        out[6] = static_cast<std::uint8_t>(lc & 0xFFU);
+    } else {
+        out[4] = static_cast<std::uint8_t>(lc);
+    }
+
+    if (enc_len > 0U) {
+        std::memmove(out + hdr, f.data, f.data_len);
+        std::size_t padded = f.data_len;
+        if (!crypto::IsoPad80(out + hdr, &padded, enc_len) || padded != enc_len) {
+            crypto::SecureZero(out, out_cap);
             return Error::BufferTooSmall;
         }
         std::uint8_t icv[16]{};
+        crypto::ScopedWipe wipe_icv(icv, sizeof(icv));
         crypto::CommandIcv(st.senc, st.counter, icv);
-        if (!crypto::Aes128CbcEncrypt(st.senc, icv, out + 5U, out + 5U, enc_len)) {
+        if (!crypto::Aes128CbcEncrypt(st.senc, icv, out + hdr, out + hdr, enc_len)) {
+            crypto::SecureZero(out, out_cap);
             return Error::InvalidArgument;
         }
     }
 
-    const std::size_t lc = enc_len + kMacFieldLen;
-    if (lc > 255U || (5U + lc) > out_cap) {
-        return Error::BufferTooSmall;
-    }
-    out[0] = cla;
-    out[1] = ins;
-    out[2] = p1;
-    out[3] = p2;
-    out[4] = static_cast<std::uint8_t>(lc);
-
     crypto::Cmac cm{};
     crypto::CmacStart(cm, st.smac);
     crypto::CmacUpdate(cm, st.mcv, 16U);
-    crypto::CmacUpdate(cm, out, 5U + enc_len);
+    crypto::CmacUpdate(cm, out, hdr + enc_len);
     std::uint8_t mac_full[16]{};
+    crypto::ScopedWipe wipe_mac(mac_full, sizeof(mac_full));
     crypto::CmacFinish(cm, mac_full);
-    std::memcpy(out + 5U + enc_len, mac_full, kMacFieldLen);
+    std::memcpy(out + hdr + enc_len, mac_full, kMacFieldLen);
     std::memcpy(st.mcv, mac_full, 16);
-    *out_len = 5U + lc;
+    std::size_t n = hdr + lc;
+    for (std::size_t i = 0; i < le_len; ++i) {
+        out[n++] = 0x00U;
+    }
+    *out_len = n;
     return Error::Ok;
 }
 
