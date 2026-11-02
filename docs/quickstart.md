@@ -4,13 +4,16 @@ Talk to an SE050 from your MCU: wire four signals, write a small port class, rea
 
 ## 1. Wire it
 
-| MCU | SE050 (HX2QFN20) | Notes |
+| MCU | SE050 pin | Notes |
 | --- | --- | --- |
-| I2C SDA | 9 (I2C_SDA) | External pull-up to VIN, sized for your bus speed |
-| I2C SCL | 10 (I2C_SCL) | Pull-up to VIN |
-| GPIO out (optional) | 11 (ENA) | Low = deep power-down; the port's `HardwareReset()` pulses it. Tie to VCC if unused |
-| 3.3 V or 1.8 V | 12 (VIN), 18 (VCC) | 1.62 V to 3.6 V. For deep power-down, VCC is fed from VOUT (15) instead |
-| GND | 19 (VSS) | Common ground |
+| I2C SDA | 9, I2C_SDA | Pull-up to VIN |
+| I2C SCL | 10, I2C_SCL | Pull-up to VIN |
+| GPIO (optional) | 11, ENA | Low: power-down |
+| 1.8 V or 3.3 V | 12 VIN, 18 VCC | 1.62 to 3.6&nbsp;V |
+| GND | 19, VSS | Common ground |
+
+ENA lets the host power-cycle the chip: the port's `HardwareReset()` pulses it low. It works when VCC is fed from
+VOUT (pin 15); tie ENA to VCC if you do not use it. Size the pull-ups for your bus speed.
 
 The bus must be idle high when the SE050 powers up: it picks I2C only if SDA and SCL are both high at boot.
 [Hardware](hardware.md) has the full pin list, bus speeds and power modes.

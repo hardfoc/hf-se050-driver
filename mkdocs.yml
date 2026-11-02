@@ -10,7 +10,8 @@
 # Pages: docs/, order: docs/.nav.yml, rules: docs/DOCS-STYLE-GUIDE.md in hf-general-ci-tools.
 site_name: SE050 Driver
 site_description: >-
-  Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.
+  Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C).
+  Part of the HardFOC ecosystem.
 repo_url: https://github.com/hardfoc/hf-se050-driver
 
 theme:

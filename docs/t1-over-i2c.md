@@ -8,13 +8,15 @@ UM11225, and what `T1Session` does at each step.
 Every exchange is a sequence of blocks. The host writes a block in one I2C write; the SE050's answer is read in
 two I2C reads, the prologue first.
 
-| Field | Bytes | Host to SE050 | SE050 to host |
-| --- | --- | --- | --- |
-| NAD | 1 | `0x5A` (`t1::kNadHostToSe`) | `0xA5` (`t1::kNadSeToHost`) |
-| PCB | 1 | Block type and sequence bits, below | |
-| LEN | 1 | Length of INF, 0 to 254 (`t1::kMaxInformationField`) | |
-| INF | LEN | APDU bytes, or an S-block's parameter | |
-| EDC | 2 | CRC-16 over NAD to INF, **LSB first** | |
+| Field | Bytes | Content |
+| --- | --- | --- |
+| NAD | 1 | `0x5A` host to SE050, `0xA5` SE050 to host |
+| PCB | 1 | Block type and sequence bits, below |
+| LEN | 1 | Length of INF, 0 to 254 |
+| INF | LEN | APDU bytes, or an S-block's parameter |
+| EDC | 2 | CRC-16 over NAD to INF, LSB first |
+
+The constants are `t1::kNadHostToSe`, `t1::kNadSeToHost` and `t1::kMaxInformationField`.
 
 The EDC is CRC-16/X-25: reflected polynomial `0x8408`, initial value `0xFFFF`, final XOR `0xFFFF` (check value
 `0x906E` for `"123456789"`, tested in [`tests/test_t1.cpp`](../tests/test_t1.cpp)). A block that fails the check
@@ -22,18 +24,14 @@ is `Error::Crc`.
 
 ## Block types
 
-<div class="hf-registers" markdown>
-
-| PCB | Name | Driver use |
-| --- | --- | --- |
-| `0x00`, `0x40`; `+0x20` with M | I-block with N(S) = 0 or 1; M: more data follows | APDU data, both directions. `t1::IBlockPcb(ns, more)` |
-| `0x80`, `0x90` | R-block with N(R) = 0 or 1, the next expected N(S); error code in the low bits | Acknowledges a chained block. `t1::RBlockAckPcb(nr)` |
-| `0xC0` / `0xE0` | S(RESYNCH) request / response | The SE050 asks; the driver resets its sequence numbers and answers |
-| `0xC3` / `0xE3` | S(WTX) request / response | The SE050 needs more time; the driver echoes the INF and keeps waiting |
-| `0xC6` / `0xE6` | S-block reset request / response | `ChipWarmReset()`: resets the T=1 state on both sides |
-| `0xC7` / `0xE7` | S(GET ATR) request / response | `GetAnswerToReset()`: returns the profile bytes |
-
-</div>
+| PCB | Block and what the driver does with it |
+| --- | --- |
+| `0x00`, `0x40` | I-block, N(S) = 0 or 1; `+0x20` sets M (more follows). APDU data both ways: `t1::IBlockPcb(ns, more)` |
+| `0x80`, `0x90` | R-block, N(R) = 0 or 1 (error code in the low bits). Acknowledges a chained block: `t1::RBlockAckPcb(nr)` |
+| `0xC0` / `0xE0` | S(RESYNCH) request / response. The SE050 asks; the driver resets its sequence numbers and answers |
+| `0xC3` / `0xE3` | S(WTX) request / response. The SE050 needs more time; the driver echoes the INF and keeps waiting |
+| `0xC6` / `0xE6` | S-block reset request / response. `ChipWarmReset()`: resets the T=1 state on both sides |
+| `0xC7` / `0xE7` | S(GET ATR) request / response. `GetAnswerToReset()` returns the profile bytes |
 
 ## Sequence numbers and chaining
 

@@ -9,28 +9,35 @@ are linked, not stored in the repository.
 
 ## Pins (HX2QFN20)
 
-| Pin | Name | Direction (chip) | Use with this driver |
-| --- | --- | --- | --- |
-| 9 | I2C_SDA | in / out, open drain | I2C target data to the host |
-| 10 | I2C_SCL | in | I2C target clock from the host |
-| 11 | ENA | in | Deep power-down while low; tie to VCC if unused. Referenced to VIN |
-| 12 | VIN | supply | I2C pad supply; also the logic supply when deep power-down is used |
-| 18 | VCC | supply | Logic supply; connect to VOUT (pin 15) to use deep power-down |
-| 15 | VOUT | supply out | Feeds VCC in the deep power-down wiring; n.c. otherwise |
-| 19 | VSS | ground | Ground. Connect the centre pad to ground too (thermal) |
-| 3, 16 | IO1 / IO2 | in / out | ISO 7816 or the SE050's own I2C controller (SDA / SCL, 400 kHz); not used by the driver |
-| 13, 14 | CLK, RST_N | in | ISO 7816 clock and reset; not used. RST_N has no effect when only I2C is enabled |
-| 1, 17 | LB, LA | antenna | ISO 14443 contactless; connect to VSS if unused |
-| 2, 4-8, 20 | n.c. | | Not connected |
+| Pin | Name | Use with this driver |
+| --- | --- | --- |
+| 9 | I2C_SDA | I2C data, open drain |
+| 10 | I2C_SCL | I2C clock, input |
+| 11 | ENA | Deep power-down while low |
+| 12 | VIN | I2C pad supply |
+| 18 | VCC | Logic supply |
+| 15 | VOUT | Feeds VCC for deep power-down |
+| 19 | VSS | Ground |
+| 3, 16 | IO1, IO2 | Not used |
+| 13, 14 | CLK, RST_N | Not used |
+| 1, 17 | LB, LA | Not used: to VSS |
+| 2, 4-8, 20 | n.c. | Not connected |
+
+- **ENA** is referenced to VIN. Tie it to VCC when you do not drive it.
+- **VIN** also supplies the logic when deep power-down is used; **VCC** is then fed from **VOUT** on the board.
+  Without deep power-down, leave VOUT unconnected.
+- **IO1 / IO2** carry ISO 7816 or the SE050's own I2C controller (400 kHz) for sensors behind it. **CLK / RST_N**
+  belong to ISO 7816; RST_N has no effect when only I2C is enabled. **LA / LB** are the ISO 14443 antenna.
+- Connect the centre pad to ground for heat.
 
 ## Reset and power modes
 
 There is no reset pin for the I2C interface. A board resets the SE050 by power-cycling it, or with ENA:
 
-| Mode | How it is entered | How it is left | Current (max) | State |
-| --- | --- | --- | --- | --- |
-| Deep power-down | ENA low | ENA high | < 5 µA | Lost: the chip boots again |
-| Power-down | T=1 "end of APDU session" S-block | Falling edge on I2C_SDA | < 500 µA | Kept |
+| Mode | Enter | Leave |
+| --- | --- | --- |
+| Deep power-down: < 5 µA, state lost | ENA low | ENA high, then boot |
+| Power-down: < 500 µA, state kept | "End of APDU session" S-block | Falling edge on SDA |
 
 Deep power-down needs the chip supplied through VIN with VCC fed from VOUT. Wired that way, the port's
 `HardwareReset()` can pulse ENA low and high to give a clean start; the reference port holds it low for 2 ms and
@@ -101,13 +108,22 @@ range.
 From the [SE050 errata sheet](https://www.nxp.com/docs/en/errata/SE050_Erratasheet.pdf) (Rev. 1.0, 14 October
 2020):
 
-| Erratum | What happens | What the driver and your port do |
-| --- | --- | --- |
-| I2C.1: lock-up on an erroneous APDU sequence | A new command written before the previous response was read in full can make the SE050 stretch SCL permanently (clock stretching on) until it is power-cycled. A host that resets mid-exchange causes exactly this | The driver always reads a response to the end. After a host reset, power-cycle the SE050 (ENA or supply) before the first command: wire ENA and call `HardwareReset()` first |
-| I2C.2: empty frame | An acknowledged address-only frame (START, address, STOP) makes the SE050 stretch the clock permanently | The driver never sends one, and `Session::TransceiveRaw()` rejects a zero-length write. Do not run an I2C bus scan with the SE050 on the bus |
-| I2C.3: lines low at start-up | SDA or SCL low during interface detection triggers a security reset after about 1 s; repeated events lock the chip | Keep the bus idle high, with pull-ups, whenever the SE050 is powered |
-| I2C.4: edge timing | SCL must change before SDA with a margin: data hold time (50 % to 50 %) at least 8 ns falling, 24 ns rising in fast mode | Check your MCU's I2C hold-time setting; most controllers meet it by default |
-| JOS.2: SCP03 counter | Inside a platform SCP03 session, a command without command data does not advance the SE050's encryption counter, and the next command fails | See [Security model](security.md#protect-the-bus-with-scp03): send commands with data while the channel is open |
+- **I2C.1, lock-up on an erroneous APDU sequence.** A command written before the previous response was read in
+  full can make the SE050 stretch SCL forever (when clock stretching is on), until it is power-cycled. A host that
+  resets in the middle of an exchange causes exactly this. The driver always reads a response to the end; after a
+  host reset, power-cycle the SE050 (ENA or supply) before the first command: wire ENA and call
+  `HardwareReset()` first.
+- **I2C.2, empty frame.** An acknowledged address-only frame (START, address, STOP) also makes the SE050 stretch
+  the clock forever. The driver never sends one and `Session::TransceiveRaw()` rejects a zero-length write. Do not
+  run an I2C bus scan with the SE050 on the bus.
+- **I2C.3, lines low at start-up.** SDA or SCL low during interface detection triggers a security reset after
+  about 1 s, and repeated events lock the chip. Keep the bus idle high, with pull-ups, whenever the SE050 is
+  powered.
+- **I2C.4, edge timing.** SCL must change before SDA with a margin: data hold time (50 % to 50 %) at least 8 ns
+  for a falling and 24 ns for a rising SDA edge in fast mode. Check your I2C controller's hold-time setting.
+- **JOS.2, SCP03 counter.** Inside a platform SCP03 session, a command without command data does not advance the
+  SE050's encryption counter, and the next command fails. See
+  [Security model](security.md#protect-the-bus-with-scp03).
 
 !!! danger "One host per SE050, one command at a time"
     I2C.1 is why the driver is not thread-safe and must not be shared between tasks without a lock: two commands
@@ -123,13 +139,14 @@ on your board before you choose a bus speed, an applet AID or object identifiers
 
 ## Evaluation and example boards
 
-The [ESP32 examples](examples.md) run on an ESP32-S3 with the SE050 on I2C port 0:
+The [ESP32 examples](examples.md) run on an ESP32-S3 with the SE050 on I2C port 0. The fields are those of
+`Se050EspI2cConfig`; ENA is not connected by default (`GPIO_NUM_NC`).
 
-| Signal | ESP32-S3 GPIO | Setting in `Se050EspI2cConfig` |
+| Signal | ESP32-S3 | Field |
 | --- | --- | --- |
 | SDA | 47 | `sda` |
 | SCL | 48 | `scl` |
-| ENA (optional) | not connected | `reset_gpio` (`GPIO_NUM_NC`) |
+| ENA | n.c. | `reset_gpio` |
 | Bus speed | 100 kHz | `freq_hz` |
 | Address | 0x48 | `device_address7` |
 

@@ -22,16 +22,21 @@ bytes, so you can send any command the device object does not cover.
 | `se050::apdu`, `se050::tlv`, `se050::cmd` | `se050_apdu.hpp`, `se050_tlv.hpp`, `se050_commands.hpp` | Building and parsing APDUs, TLVs and applet commands yourself |
 | `se050::atr`, `se050::applet` | `se050_atr.hpp`, `se050_applet.hpp` | ATR profile parsing; `SELECT` builders and AIDs |
 
-| `Device` command | Applet command (AN12413) | Returns |
-| --- | --- | --- |
-| `SelectDefaultIoTApplet()`, `SelectCardManager()` | `SELECT` | The raw R-APDU: check SW yourself |
-| `GetVersion()` | `GetVersion` | `cmd::VersionInfo`: applet version, configuration, secure box |
-| `GetRandom()` | `GetRandom` | Up to the bytes you ask for |
-| `GetFreeMemory()` | `GetFreeMemory` | Free bytes of one memory type (saturates at 32767) |
-| `WriteBinary()`, `ReadObject()`, `DeleteSecureObject()`, `CheckObjectExists()` | `WriteBinary`, `ReadObject`, `DeleteSecureObject`, `CheckObjectExists` | Status or data |
-| `GenerateEcKeyPair()`, `ReadPublicEcKey()` | `WriteECKey` (generate), `ReadObject` | Status; the public key |
-| `EcdsaSign()`, `EcdsaVerify()` | `ECDSASign`, `ECDSAVerify` | DER signature; `bool` result |
-| `WriteAesKey()`, `CipherAesEcb()`, `UnwrapAes256Rfc3394()` | `WriteSymmKey`, `CipherOneShot` | Status; ciphertext or plaintext; an unwrapped 32-byte key |
+| `Device` command | Returns |
+| --- | --- |
+| `SelectDefaultIoTApplet()`, `SelectCardManager()` | The raw R-APDU: check SW yourself |
+| `GetVersion()` | `cmd::VersionInfo`: applet version, configuration, secure box |
+| `GetRandom()` | The bytes you ask for |
+| `GetFreeMemory()` | Free bytes of one memory type (at most 32767) |
+| `WriteBinary()`, `DeleteSecureObject()` | Status |
+| `ReadObject()`, `CheckObjectExists()` | Data; `bool` |
+| `GenerateEcKeyPair()`, `ReadPublicEcKey()` | Status; the public key |
+| `EcdsaSign()`, `EcdsaVerify()` | DER signature; `bool` |
+| `WriteAesKey()`, `CipherAesEcb()` | Status; the output blocks |
+| `UnwrapAes256Rfc3394()` | A 32-byte key, unwrapped with a KEK in the chip |
+
+The commands are those of the IoT applet's APDU specification (AN12413): `GenerateEcKeyPair()` is `WriteECKey`
+without a key value, `WriteAesKey()` is `WriteSymmKey`, `CipherAesEcb()` is `CipherOneShot`.
 
 Every call returns `se050::Error`. Every argument that receives data comes with its capacity and a length out.
 Timeouts are in milliseconds and apply to each I2C transfer of the exchange.
@@ -104,17 +109,17 @@ page covers provisioning, the limits of the channel and an erratum that affects 
 
 ## Handle errors
 
-| `se050::Error` | Meaning | What to do |
-| --- | --- | --- |
-| `Ok` | Success | |
-| `NotInitialized` | The port's `EnsureInitialized()` returned `false` | Check bus set-up |
-| `Transport`, `Timeout` | An I2C write failed, or a read failed after the retries | Wiring, address, power, ENA; [Troubleshooting](troubleshooting.md) |
-| `Crc` | A block arrived with a wrong CRC | Noise, speed, a port that splits writes; recover |
-| `Sequence` | The SE050's N(S) is not the expected one | Recover |
-| `Protocol` | Bad framing, too many WTX requests, an R-MAC failure, or a typed command answered SW other than `90 00` | Recover; for a status word, send the command with `TransmitApdu()` to see it |
-| `BufferTooSmall` | The answer does not fit your buffer, or the SCP03 scratch is missing | Pass a larger buffer |
-| `InvalidArgument` | A null pointer or a length out of range | Fix the call |
-| `NotSupported` | SCP03 without keys, or wrap without an open channel | Provision keys |
+| `se050::Error` | Meaning and what to do |
+| --- | --- |
+| `Ok` | Success |
+| `NotInitialized` | The port's `EnsureInitialized()` returned `false`. Check bus set-up |
+| `Transport`, `Timeout` | An I2C write failed, or a read failed after the retries. Wiring, address, power, ENA; [Troubleshooting](troubleshooting.md) |
+| `Crc` | A block arrived with a wrong CRC. Noise, speed, a port that splits writes; recover |
+| `Sequence` | The SE050's N(S) is not the expected one. Recover |
+| `Protocol` | Bad framing, too many WTX requests, an R-MAC failure, or a typed command answered SW other than `90 00`. Recover; for a status word, send the command with `TransmitApdu()` to see it |
+| `BufferTooSmall` | The answer does not fit your buffer, or the SCP03 scratch is missing. Pass a larger buffer |
+| `InvalidArgument` | A null pointer or a length out of range. Fix the call |
+| `NotSupported` | SCP03 without keys, or wrap without an open channel. Provision keys |
 
 After any error below the applet level (`Transport`, `Timeout`, `Crc`, `Sequence`, `Protocol` from framing), the
 T=1 state of host and chip may differ. Start over:

@@ -30,19 +30,19 @@ APDU and TLV encoding, and the SCP03 wrap. It allocates nothing and contains no 
 </div>
 
 Function
-:   Key storage and crypto: ECC (NIST P-192 to P-521, Brainpool, Curve25519), RSA, AES, SHA-1/2, HMAC, TRNG
+:   Key storage and crypto: ECC (NIST P-192 to P-521, Brainpool, Curve25519), RSA, AES, SHA-1 and SHA-2, HMAC, TRNG
 
 Host interface
-:   I2C target, address 0x48, T=1 over I2C (UM11225); up to 1 MHz, 3.4 MHz with clock stretching
+:   I2C target, address 0x48, T=1 over I2C (UM11225); up to 1&nbsp;MHz, 3.4&nbsp;MHz with clock stretching
 
 Supply
-:   VIN, VCC 1.62 V to 3.6 V (1.8 V typical); 6 V absolute maximum
+:   VIN, VCC 1.62&nbsp;V to 3.6&nbsp;V (1.8&nbsp;V typical); 6&nbsp;V absolute maximum
 
 Memory and security
-:   Up to 50 kB user flash; CC EAL 6+; SCP03 bus encryption
+:   Up to 50&nbsp;kB user flash; CC EAL 6+; SCP03 bus encryption
 
 Package and range
-:   HX2QFN20, 3 mm × 3 mm; −25 °C to 85 °C or −40 °C to 105 °C by part number
+:   HX2QFN20, 3&nbsp;mm × 3&nbsp;mm; −25&nbsp;°C to 85&nbsp;°C or −40&nbsp;°C to 105&nbsp;°C by part number
 
 Driver uses
 :   The IoT applet over plaintext T=1, or over a platform SCP03 channel with keys you provision

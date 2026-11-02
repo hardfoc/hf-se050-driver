@@ -22,26 +22,38 @@ configuration's entry in [AN12436](https://www.nxp.com/docs/en/application-note/
 
 ## What this driver does, and does not
 
-| Area | The driver | Not in the driver (today) |
-| --- | --- | --- |
-| Transport | T=1 over I2C with CRC; plaintext APDUs by default | |
-| Platform SCP03 | `INITIALIZE UPDATE` / `EXTERNAL AUTHENTICATE`, security level `0x33` (C-MAC, C-ENC, R-MAC, R-ENC); wrap and unwrap of short APDUs; `BuildPutKey()` to replace the key set | Extended-length APDUs inside the channel; making SCP03 mandatory on the chip (`SetPlatformSCPRequest`) |
-| Applet sessions | | UserID, AESKey or ECKey authenticated sessions; object policies |
-| Keys | EC key generation (NIST curves), AES key write, ECDSA sign / verify, AES-ECB, RFC 3394 unwrap through the chip | RSA, ECDH, attested reads, certificate handling |
-| Key material in the code | None. `OpenSecureChannel()` returns `Error::NotSupported` without keys | |
+The driver does:
+
+- **Transport:** T=1 over I2C with CRC. APDUs are plaintext by default.
+- **Platform SCP03:** `INITIALIZE UPDATE` and `EXTERNAL AUTHENTICATE` at security level `0x33` (C-MAC, C-ENC,
+  R-MAC, R-ENC), wrap and unwrap of short APDUs, and `BuildPutKey()` to replace the key set.
+- **Keys:** EC key generation on NIST curves, AES key write, ECDSA sign and verify, AES-ECB, and RFC 3394 unwrap
+  through the chip.
+- **No key material in the code:** `OpenSecureChannel()` returns `Error::NotSupported` when you pass no keys.
+
+It does not do (today):
+
+- Extended-length APDUs inside the SCP03 channel, or making SCP03 mandatory on the chip (`SetPlatformSCPRequest`).
+- Applet sessions authenticated by UserID, AESKey or ECKey, or object policies.
+- RSA, ECDH, attested reads, certificate handling.
 
 The commands go to the applet in plaintext unless you open an SCP03 channel. On a board where nobody can reach the
 I2C lines that may be acceptable; on most products it is not.
 
 ## Threats and what stops them
 
-| Attacker can | Without SCP03 | With SCP03 open |
-| --- | --- | --- |
-| Read firmware from the MCU | No SE050 private keys in it. Any SCP03 host keys on the MCU are exposed: protect them with flash encryption | Same |
-| Listen on I2C | Sees every APDU and response: public keys, signatures, data you write or read, AES keys you write | Sees encrypted, MACed APDUs |
-| Inject or change I2C traffic | Can forge any response, including "signature valid" from `EcdsaVerify()` and data from `ReadObject()` | Tampered responses fail the R-MAC and close the channel, with one exception below |
-| Take the SE050 to another board | Can use its keys there: they are not bound to your MCU | Needs the SCP03 keys too |
-| Extract keys from the SE050 by attacking the chip | Out of scope for the driver: the chip's certification covers it | Same |
+- **Read the MCU's firmware.** No SE050 private key is in it. Any SCP03 host keys stored on the MCU are
+  exposed: protect them with flash encryption.
+- **Listen on I2C.** Without SCP03 the attacker sees every APDU and response: public keys, signatures, the data
+  you write or read, AES keys you write. With SCP03 open, only encrypted, MACed APDUs.
+- **Inject or change I2C traffic.** Without SCP03 the attacker can forge any response, including "signature
+  valid" from `EcdsaVerify()` and the data of `ReadObject()`. With SCP03 open, a tampered response fails the R-MAC
+  and closes the channel, with the exception below.
+- **Move the SE050 to another board.** Without SCP03 its keys work there: they are not bound to your MCU. With
+  SCP03 made mandatory on the chip (by a provisioning tool; the driver cannot set it), the attacker needs your
+  host keys too.
+- **Attack the SE050 itself to extract keys.** Out of the driver's scope: that is what the chip's certification
+  covers.
 
 !!! warning "Responses shorter than 10 bytes are not MAC-checked"
     `scp03::UnwrapResponse()` passes a response of fewer than 10 bytes through as status words without checking a
