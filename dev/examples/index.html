@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/examples/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -1021,7 +1062,7 @@
 <p>Complete ESP32 applications that exercise the driver on a real SE050, from first bring-up to a full IoT device
 lifecycle.</p>
 <p>They run on an ESP32-S3 with the SE050 on I2C port 0 (SDA GPIO 47, SCL GPIO 48, 100 kHz); the port is
-<a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/include/hf_se050_esp_i2c.hpp"><code>hf_se050_esp_i2c.hpp</code></a>. CI builds every app below on each
+<a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/include/hf_se050_esp_i2c.hpp"><code>hf_se050_esp_i2c.hpp</code></a>. CI builds every app below on each
 pull request. Several examples write objects and generate keys: run them on a development part, not on a
 provisioned product.</p>
 <h2 id="the-apps">The apps<a class="headerlink" href="#the-apps" title="Permanent link">&para;</a></h2>
@@ -1039,43 +1080,43 @@ provisioned product.</p>
 <tr>
 <td><code>se050_minimal_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Bring-up: power cycle, T=1 reset, ATR, SELECT of the IoT applet</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_minimal_example.cpp"><code>se050_minimal_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_minimal_example.cpp"><code>se050_minimal_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_smoke_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Health check: ATR fields, applet version, random bytes, free memory</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_smoke_example.cpp"><code>se050_smoke_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_smoke_example.cpp"><code>se050_smoke_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_object_lifecycle_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Write, read back and delete a binary object</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_object_lifecycle_example.cpp"><code>se050_object_lifecycle_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_object_lifecycle_example.cpp"><code>se050_object_lifecycle_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_cloud_onboarding_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Generate a P-256 key on chip, sign a challenge and verify the signature</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_cloud_onboarding_example.cpp"><code>se050_cloud_onboarding_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_cloud_onboarding_example.cpp"><code>se050_cloud_onboarding_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_secure_board_comms_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Signed messages between two boards, with a counter and nonce against replay</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_secure_board_comms_example.cpp"><code>se050_secure_board_comms_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_secure_board_comms_example.cpp"><code>se050_secure_board_comms_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_cloud_registration_packet_example</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>Registration payload: reuse or create a key, export the public key, sign a challenge</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_cloud_registration_packet_example.cpp"><code>se050_cloud_registration_packet_example.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_cloud_registration_packet_example.cpp"><code>se050_cloud_registration_packet_example.cpp</code></a></td>
 <td>yes</td>
 </tr>
 <tr>
 <td><code>se050_aws_iot_lifecycle</code> <span class="twemoji" title="featured"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.45 4.73L5.82 21z"/></svg></span></td>
 <td>IoT lifecycle: provisioning, Wi-Fi, TLS identity, signed MQTT telemetry, OTA manifest check</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_aws_iot_lifecycle/se050_aws_iot_lifecycle.cpp"><code>se050_aws_iot_lifecycle/se050_aws_iot_lifecycle.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_aws_iot_lifecycle/se050_aws_iot_lifecycle.cpp"><code>se050_aws_iot_lifecycle/se050_aws_iot_lifecycle.cpp</code></a></td>
 <td>yes</td>
 </tr>
 </tbody>
@@ -1084,7 +1125,7 @@ provisioned product.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./scripts/build_app.sh<span class="w"> </span>se050_minimal_example<span class="w"> </span>Release
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./scripts/flash_app.sh<span class="w"> </span>flash_monitor<span class="w"> </span>se050_minimal_example<span class="w"> </span>Release
 </span></code></pre></div>
-<p>Source of this table: <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/app_config.yml"><code>examples/esp32/app_config.yml</code></a>.</p>
+<p>Source of this table: <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/app_config.yml"><code>examples/esp32/app_config.yml</code></a>.</p>
 <!-- /generated -->
 
 <h2 id="set-up-once">Set up once<a class="headerlink" href="#set-up-once" title="Permanent link">&para;</a></h2>
@@ -1093,7 +1134,7 @@ provisioned product.</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>.<span class="w"> </span><span class="nv">$IDF_PATH</span>/export.sh<span class="w">                                 </span><span class="c1"># ESP-IDF v5.5</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>./scripts/build_app.sh<span class="w"> </span>list<span class="w">                           </span><span class="c1"># every app and build type</span>
 </span></code></pre></div>
-<p>The scripts read <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/app_config.yml"><code>app_config.yml</code></a> (the same file this page's table comes
+<p>The scripts read <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/app_config.yml"><code>app_config.yml</code></a> (the same file this page's table comes
 from) and build each app as its own firmware image. Set <code>ESPPORT</code> to flash, for example
 <code>export ESPPORT=/dev/ttyACM0</code>.</p>
 <h2 id="what-to-read-in-an-example">What to read in an example<a class="headerlink" href="#what-to-read-in-an-example" title="Permanent link">&para;</a></h2>
@@ -1131,13 +1172,13 @@ from) and build each app as its own firmware image. Set <code>ESPPORT</code> to 
 </tr>
 <tr>
 <td>Provisioning, Wi-Fi, TLS identity in mbedTLS, signed MQTT telemetry, OTA manifest check</td>
-<td><code>se050_aws_iot_lifecycle/</code> and its <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/se050_aws_iot_lifecycle/README.md">README</a></td>
+<td><code>se050_aws_iot_lifecycle/</code> and its <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/se050_aws_iot_lifecycle/README.md">README</a></td>
 </tr>
 </tbody>
 </table>
 <p>The examples' object identifiers (<code>0xF0...</code>) are placeholders for a development part; choose your own for a
 product (<a href="../security/#device-identity">Security model</a>). The
-<a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/README.md">example folder's README</a> has the wiring and the build commands.</p>
+<a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/README.md">example folder's README</a> has the wiring and the build commands.</p>
 
 
 

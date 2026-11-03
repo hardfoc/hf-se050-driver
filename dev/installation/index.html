@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/installation/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -1102,7 +1143,7 @@ generated version header, and requires C++17 (<code>cxx_std_17</code>).</p>
 <code>lib/cmake/hf_se050</code>. The CMake version, <code>HF_SE050_VERSION</code> and the ESP-IDF component manifest carry the same
 version; configuring fails if they differ.</p>
 <h2 id="esp-idf">ESP-IDF<a class="headerlink" href="#esp-idf" title="Permanent link">&para;</a></h2>
-<p>The ESP-IDF component wrapper is <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/components/hf_se050/CMakeLists.txt"><code>examples/esp32/components/hf_se050/</code></a>.
+<p>The ESP-IDF component wrapper is <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/components/hf_se050/CMakeLists.txt"><code>examples/esp32/components/hf_se050/</code></a>.
 Copy that folder into your project's <code>components/</code> (or point <code>EXTRA_COMPONENT_DIRS</code> at it) and set the
 <code>HF_SE050_ROOT</code> cache variable to the driver checkout; the wrapper stops with a clear message when the path is
 wrong. Your component then declares <code>REQUIRES hf_se050</code>. The wrapper itself requires <code>driver</code> and <code>freertos</code>, for
@@ -1119,17 +1160,17 @@ the ESP-IDF port in the examples.</p>
 <tbody>
 <tr>
 <td>Settings</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/cmake/hf_se050_build_settings.cmake"><code>cmake/hf_se050_build_settings.cmake</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/cmake/hf_se050_build_settings.cmake"><code>cmake/hf_se050_build_settings.cmake</code></a></td>
 <td>Include directories, version, version header: the single source of truth</td>
 </tr>
 <tr>
 <td>Library</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/CMakeLists.txt"><code>CMakeLists.txt</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/CMakeLists.txt"><code>CMakeLists.txt</code></a></td>
 <td><code>INTERFACE</code> target for host builds and CI</td>
 </tr>
 <tr>
 <td>ESP-IDF</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/components/hf_se050/CMakeLists.txt"><code>examples/esp32/components/hf_se050/CMakeLists.txt</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/components/hf_se050/CMakeLists.txt"><code>examples/esp32/components/hf_se050/CMakeLists.txt</code></a></td>
 <td>IDF component wrapper over the same settings</td>
 </tr>
 </tbody>

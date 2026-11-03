@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/architecture/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -986,14 +1027,14 @@
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
 <p>How the driver is put together: three layers, what each owns, and how one command reaches the chip.</p>
 <figure class="hf-figure">
-<img src="../diagrams/driver-layers.svg#only-light" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" loading="lazy"><img src="../diagrams/driver-layers.dark.svg#only-dark" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" loading="lazy">
+<img src="../diagrams/driver-layers.svg#only-light" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" height="909"><img src="../diagrams/driver-layers.dark.svg#only-dark" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" height="909">
 <figcaption>Three layers, one of them yours</figcaption>
 </figure>
 
 <details class="hf-figure-desc">
 <summary>Figure description and sources</summary>
 <p>From top to bottom. Your application talks to one se050::Device<Transport> object, whose public commands are listed from inc/se050_device.hpp. Each command builds an APDU, which the T=1 session (inc/se050_t1_session.hpp) frames into blocks with a CRC-16 EDC, chains and acknowledges; when an SCP03 session is open the APDU is wrapped first. The communication interface (se050::I2cTransceiveInterface in inc/se050_i2c_transport_interface.hpp) is a CRTP base. The platform port is the only code you write: the methods listed from that header's requirements. Below it is the SE050 on I2C.</p>
-<p>Drawn from: <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a> <code>Device commands</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a> <code>T1Session</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a> <code>Derived requirements</code>; figure module <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/docs/diagrams/figures/driver-layers.py"><code>docs/diagrams/figures/driver-layers.py</code></a>.</p>
+<p>Drawn from: <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a> <code>Device commands</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a> <code>T1Session</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a> <code>Derived requirements</code>; figure module <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/docs/diagrams/figures/driver-layers.py"><code>docs/diagrams/figures/driver-layers.py</code></a>.</p>
 </details>
 <h2 id="the-three-layers">The three layers<a class="headerlink" href="#the-three-layers" title="Permanent link">&para;</a></h2>
 <table>
@@ -1008,13 +1049,13 @@
 <tbody>
 <tr>
 <td><strong>Hardware-agnostic core</strong>: <code>Device&lt;Transport&gt;</code>, its commands and the APDU, TLV and command builders</td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_commands.hpp"><code>inc/se050_commands.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_apdu.hpp"><code>inc/se050_apdu.hpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_commands.hpp"><code>inc/se050_commands.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_apdu.hpp"><code>inc/se050_apdu.hpp</code></a></td>
 <td>The interface's methods only</td>
 <td>Never, for a new board</td>
 </tr>
 <tr>
 <td><strong>Communication interface</strong>: <code>T1Session</code>, <code>scp03::Session</code>, the CRTP base <code>I2cTransceiveInterface</code></td>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_scp03.hpp"><code>inc/se050_scp03.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_scp03.hpp"><code>inc/se050_scp03.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a></td>
 <td>Six methods of your port</td>
 <td>Never</td>
 </tr>

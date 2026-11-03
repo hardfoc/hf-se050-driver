@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/t1-over-i2c/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -1115,7 +1156,7 @@ two I2C reads, the prologue first.</p>
 </table>
 <p>The constants are <code>t1::kNadHostToSe</code>, <code>t1::kNadSeToHost</code> and <code>t1::kMaxInformationField</code>.</p>
 <p>The EDC is CRC-16/X-25: reflected polynomial <code>0x8408</code>, initial value <code>0xFFFF</code>, final XOR <code>0xFFFF</code> (check value
-<code>0x906E</code> for <code>"123456789"</code>, tested in <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_t1.cpp"><code>tests/test_t1.cpp</code></a>). A block that fails the check
+<code>0x906E</code> for <code>"123456789"</code>, tested in <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_t1.cpp"><code>tests/test_t1.cpp</code></a>). A block that fails the check
 is asked for again (<a href="#error-recovery">Error recovery</a>); after the retransmission limit the exchange fails with
 <code>Error::Crc</code>.</p>
 <h2 id="block-types">Block types<a class="headerlink" href="#block-types" title="Permanent link">&para;</a></h2>

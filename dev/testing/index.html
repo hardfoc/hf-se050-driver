@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/testing/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -1014,31 +1055,31 @@ block, so tests check exactly what went over the bus.</p>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_t1.cpp"><code>tests/test_t1.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_t1.cpp"><code>tests/test_t1.cpp</code></a></td>
 <td>CRC-16 check value and byte order, S-block framing, N(S) alternation, chaining both ways, WTX limits, retransmission after EDC errors and NACKs, IFSC from the ATR, the erratum I2C.1 start-up read, retry errors</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_apdu.cpp"><code>tests/test_apdu.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_apdu.cpp"><code>tests/test_apdu.cpp</code></a></td>
 <td><code>SELECT</code>, short and extended APDUs, R-APDU and TLV parsing, <code>GetRandom</code> / <code>GetVersion</code> / <code>EcdsaVerify</code> end to end, status-word errors, the SCP03 key gate, the RFC 3394 test vector</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_scp03.cpp"><code>tests/test_scp03.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_scp03.cpp"><code>tests/test_scp03.cpp</code></a></td>
 <td>SCP03 against the card model: round trips, rejected answers (tampered R-MAC, status word only, replay), wiping on <code>Close()</code> and destruction, erratum JOS.2, extended APDUs and Le</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/mock_se050.hpp"><code>tests/mock_se050.hpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/mock_se050.hpp"><code>tests/mock_se050.hpp</code></a></td>
 <td>The T=1 over I2C model, with EDC, NACK and I2C.1 fault injection</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/mock_scp03_card.hpp"><code>tests/mock_scp03_card.hpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/mock_scp03_card.hpp"><code>tests/mock_scp03_card.hpp</code></a></td>
 <td>The card side of SCP03 in front of an applet model</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/install_check.cmake"><code>tests/install_check.cmake</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/install_check.cmake"><code>tests/install_check.cmake</code></a></td>
 <td>CTest <code>hf_se050_install</code>: install, then build a <code>find_package()</code> consumer</td>
 </tr>
 <tr>
-<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_harness.hpp"><code>tests/test_harness.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/test_main.cpp"><code>tests/test_main.cpp</code></a></td>
+<td><a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_harness.hpp"><code>tests/test_harness.hpp</code></a>, <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/test_main.cpp"><code>tests/test_main.cpp</code></a></td>
 <td>A dependency-free test registry and runner</td>
 </tr>
 </tbody>
@@ -1046,7 +1087,7 @@ block, so tests check exactly what went over the bus.</p>
 <p>The tests use no real keys: the only key material is the public RFC 3394 test vector, which the SCP03 tests also
 use as static keys and challenges.</p>
 <h2 id="documentation-snippets">Documentation snippets<a class="headerlink" href="#documentation-snippets" title="Permanent link">&para;</a></h2>
-<p>Every C++ block on this site is included from <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/docs/my_i2c.hpp"><code>tests/docs/</code></a>, which the host build
+<p>Every C++ block on this site is included from <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/docs/my_i2c.hpp"><code>tests/docs/</code></a>, which the host build
 compiles (target <code>hf_se050_doc_snippets</code>, <code>-Wall -Wextra</code>) with <code>Device</code>, <code>Session</code>, <code>T1Session</code> and
 <code>scp03::Session</code> explicitly instantiated over the documented port. A change to the API that breaks a page breaks
 the build first. The README's example is a copy of the Quickstart snippet that <code>hardfoc-docs check</code> keeps in step.</p>

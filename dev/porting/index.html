@@ -105,6 +105,47 @@
   <meta property="og:description" content="Hardware-agnostic C++17 driver for the NXP SE050 EdgeLock secure element (T=1 over I2C). Part of the HardFOC ecosystem.">
   <meta property="og:url" content="https://hardfoc.github.io/hf-se050-driver/latest/porting/">
   <meta name="twitter:card" content="summary">
+  <script>
+(function () {
+  if (typeof mermaid != "undefined" && !(mermaid instanceof Element)) return;
+  var SRC = "https://unpkg.com/mermaid@11/dist/mermaid.min.js", config = {}, real, loading, waiting = [];
+  var stub = {
+    initialize: function (c) { config = c || {}; if (real) real.initialize(config); },
+    render: function (id, text) {
+      var el = null, pres = document.querySelectorAll("pre.mermaid:not([data-hf-mermaid])");
+      for (var i = 0; i < pres.length && !el; i++) if (pres[i].textContent === text) el = pres[i];
+      if (el) el.setAttribute("data-hf-mermaid", "");
+      return near(el).then(load).then(function (m) { return m.render(id, text); });
+    }
+  };
+  function load() {
+    return loading || (loading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SRC;
+      s.onload = function () {
+        real = window.mermaid;
+        window.mermaid = stub;
+        real.initialize(config);
+        resolve(real);
+      };
+      s.onerror = function () { loading = null; reject(new Error("Mermaid did not load")); };
+      document.head.appendChild(s);
+    }));
+  }
+  function near(el) {
+    if (real || !el || !("IntersectionObserver" in window)) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); resolve(); }
+      }, { rootMargin: "100% 0px" });
+      io.observe(el);
+      waiting.push(function () { io.disconnect(); resolve(); });
+    });
+  }
+  window.addEventListener("beforeprint", function () { waiting.splice(0).forEach(function (go) { go(); }); });
+  window.mermaid = stub;
+})();
+</script>
 
   </head>
   
@@ -1065,17 +1106,17 @@
 <p>Run the driver on a new MCU by writing one class: the I2C interface.</p>
 <p>The driver never calls your SDK directly. It calls six methods on a class you derive from
 <code>se050::I2cTransceiveInterface&lt;Self&gt;</code> (in
-<a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a>). The base class uses CRTP:
+<a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a>). The base class uses CRTP:
 the calls are resolved at compile time, so there are no virtual functions, no vtable and nothing to allocate.</p>
 <figure class="hf-figure">
-<img src="../diagrams/driver-layers.svg#only-light" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" loading="lazy"><img src="../diagrams/driver-layers.dark.svg#only-dark" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" loading="lazy">
+<img src="../diagrams/driver-layers.svg#only-light" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" height="909"><img src="../diagrams/driver-layers.dark.svg#only-dark" alt="Layer diagram: the application calls the hardware-agnostic SE050 Device and its commands, which go through the T=1 session and the optional SCP03 channel, then the CRTP I2C interface, which calls the platform port you write, which drives the I2C bus and the ENA pin of the SE050." width="1200" height="909">
 <figcaption>Three layers, one of them yours</figcaption>
 </figure>
 
 <details class="hf-figure-desc">
 <summary>Figure description and sources</summary>
 <p>From top to bottom. Your application talks to one se050::Device<Transport> object, whose public commands are listed from inc/se050_device.hpp. Each command builds an APDU, which the T=1 session (inc/se050_t1_session.hpp) frames into blocks with a CRC-16 EDC, chains and acknowledges; when an SCP03 session is open the APDU is wrapped first. The communication interface (se050::I2cTransceiveInterface in inc/se050_i2c_transport_interface.hpp) is a CRTP base. The platform port is the only code you write: the methods listed from that header's requirements. Below it is the SE050 on I2C.</p>
-<p>Drawn from: <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a> <code>Device commands</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a> <code>T1Session</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a> <code>Derived requirements</code>; figure module <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/docs/diagrams/figures/driver-layers.py"><code>docs/diagrams/figures/driver-layers.py</code></a>.</p>
+<p>Drawn from: <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_device.hpp"><code>inc/se050_device.hpp</code></a> <code>Device commands</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_t1_session.hpp"><code>inc/se050_t1_session.hpp</code></a> <code>T1Session</code>; <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/inc/se050_i2c_transport_interface.hpp"><code>inc/se050_i2c_transport_interface.hpp</code></a> <code>Derived requirements</code>; figure module <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/docs/diagrams/figures/driver-layers.py"><code>docs/diagrams/figures/driver-layers.py</code></a>.</p>
 </details>
 <h2 id="what-you-implement">What you implement<a class="headerlink" href="#what-you-implement" title="Permanent link">&para;</a></h2>
 <table>
@@ -1195,14 +1236,14 @@ reads).</p>
 <li><strong>Pull-ups and idle-high lines</strong> before the SE050 powers up (<a href="../hardware/#reset-and-power-modes">Hardware</a>).</li>
 </ul>
 <h2 id="reference-implementation">Reference implementation<a class="headerlink" href="#reference-implementation" title="Permanent link">&para;</a></h2>
-<p>The ESP32 examples use <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/examples/esp32/main/include/hf_se050_esp_i2c.hpp"><code>hf_se050_esp_i2c.hpp</code></a>: an ESP-IDF
+<p>The ESP32 examples use <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/examples/esp32/main/include/hf_se050_esp_i2c.hpp"><code>hf_se050_esp_i2c.hpp</code></a>: an ESP-IDF
 v5 <code>i2c_master</code> port with an optional ENA GPIO and FreeRTOS delays. Start from it for any ESP-IDF target.</p>
 <p>On HardFOC boards the SE050 is used through <code>Se050Handler</code> in <a href="https://github.com/hardfoc/hf-core">hf-core</a>: it
 implements this interface over the HAL's <code>BaseI2c</code> and an optional <code>BaseGpio</code> for the reset line (wire it to ENA),
 adds a mutex and owns the <code>Device</code>. Build it with <code>HF_CORE_ENABLE_SE050</code>.</p>
 <h2 id="check-your-port">Check your port<a class="headerlink" href="#check-your-port" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Build it: the port on this page is compiled by the host CI from <a href="https://github.com/hardfoc/hf-se050-driver/blob/4c6e4c9021df1994c3b74ae341f9f68d6c7fb7f9/tests/docs/my_i2c.hpp"><code>tests/docs/</code></a>, with
+<li>Build it: the port on this page is compiled by the host CI from <a href="https://github.com/hardfoc/hf-se050-driver/blob/9d72cba003badfbfb400ed2adacb8f52f154da0f/tests/docs/my_i2c.hpp"><code>tests/docs/</code></a>, with
    every driver class instantiated over it.</li>
 <li>Run <code>ChipWarmReset()</code> and <code>GetAnswerToReset()</code>: both succeeding proves writes, reads, NACK handling and the CRC.</li>
 <li><code>SelectDefaultIoTApplet()</code> answering <code>90 00</code>, then <code>GetRandom(32, ...)</code>: APDUs work end to end.</li>
