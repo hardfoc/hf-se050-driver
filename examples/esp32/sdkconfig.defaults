@@ -1,2 +1,6 @@
 # ESP32-S3 — HF-SE050 example defaults (merge with idf.py set-target)
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# HardFOC standard: FreeRTOS runs at 1000 Hz. hf-utils-rtos-wrap rounds a
+# nonzero delay up to one tick, so ms-precision waits need a 1 ms tick.
+CONFIG_FREERTOS_HZ=1000
